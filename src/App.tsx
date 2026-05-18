@@ -1,3 +1,4 @@
+import React from "react";
 import { useState, useRef, useEffect } from "react";
 
 /* ── LANGUAGES ─────────────────────────────────────────────────────── */
@@ -692,9 +693,9 @@ return <Chat user={user} onLogout={()=>setUser(null)}/>;
 /* ══════════════════════════════════════════════════════════════════════
 STYLES
 ══════════════════════════════════════════════════════════════════════ */
-const T = { bg:"#080612", green:"#00FFB2", red:"#FF6B6B", teal:"#4ECDC4", card:"rgba(255,255,255,0.05)", border:"rgba(255,255,255,0.09)", sub:"rgba(255,255,255,0.45)" };
+const T: Record<string,string> = { bg:"#080612", green:"#00FFB2", red:"#FF6B6B", teal:"#4ECDC4", card:"rgba(255,255,255,0.05)", border:"rgba(255,255,255,0.09)", sub:"rgba(255,255,255,0.45)" };
 
-const ob = {
+const ob: Record<string,React.CSSProperties> = {
 wrap: { minHeight:"100vh", background:T.bg, display:"flex", alignItems:"center", justifyContent:"center", padding:20, position:"relative", overflow:"hidden", fontFamily:"'Outfit',sans-serif" },
 blob1: { position:"fixed", top:-150, left:-150, width:500, height:500, borderRadius:"50%", background:"radial-gradient(circle,rgba(0,255,178,0.12) 0%,transparent 70%)", pointerEvents:"none", zIndex:0 },
 blob2: { position:"fixed", bottom:-100, right:-100, width:400, height:400, borderRadius:"50%", background:"radial-gradient(circle,rgba(255,107,107,0.08) 0%,transparent 70%)", pointerEvents:"none", zIndex:0 },
@@ -731,7 +732,7 @@ toneBtnActive:{ background:"rgba(0,255,178,0.08)", borderColor:"rgba(0,255,178,0
 toneCheck:{ position:"absolute", right:16, top:"50%", transform:"translateY(-50%)", color:T.green, fontSize:18, fontWeight:700 },
 };
 
-const ch = {
+const ch: Record<string,React.CSSProperties> = {
 wrap: { height:"100vh", display:"flex", flexDirection:"column", background:T.bg, fontFamily:"'Outfit',sans-serif", position:"relative", overflow:"hidden" },
 header: { display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 16px", background:"rgba(255,255,255,0.03)", borderBottom:`1px solid ${T.border}`, position:"relative", zIndex:3 },
 headerL:{ display:"flex", alignItems:"center", gap:10 },
@@ -767,7 +768,7 @@ textInput:{ flex:1, background:"none", border:"none", color:"#fff", fontFamily:"
 sendBtn:{ width:44, height:44, borderRadius:12, background:`linear-gradient(135deg,${T.green},#00B4D8)`, border:"none", cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 4px 14px rgba(0,255,178,0.25)", transition:"all 0.2s", flexShrink:0 },
 };
 
-const info = {
+const info: Record<string,React.CSSProperties> = {
 wrap: { flex:1, overflowY:"auto", padding:14, display:"flex", flexDirection:"column", gap:12, position:"relative", zIndex:1 },
 card: { background:T.card, border:`1px solid ${T.border}`, borderRadius:18, padding:"20px 16px" },
 avatar: { width:64, height:64, borderRadius:18, background:"rgba(0,255,178,0.1)", border:"2px solid rgba(0,255,178,0.3)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, margin:"0 auto 12px" },
@@ -789,7 +790,7 @@ memberLang: { padding:"3px 9px", borderRadius:8, background:"rgba(255,255,255,0.
 memberPrimary:{ background:"rgba(0,255,178,0.1)", borderColor:"rgba(0,255,178,0.3)", color:T.green },
 };
 
-const vr = {
+const vr: Record<string,React.CSSProperties> = {
 wrap: { display:"flex", flexDirection:"column", alignItems:"center", gap:14, padding:"4px 0" },
 hint: { color:T.sub, fontSize:12, textAlign:"center" },
 timer: { fontSize:32, fontWeight:800, color:"#FF6B6B", letterSpacing:1, fontVariantNumeric:"tabular-nums" },
