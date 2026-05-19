@@ -236,15 +236,9 @@ langs.forEach(c => { txMap[c] = text; });
 setTranslations(txMap);
 
 // Step 2: Generate voice audio for each language
-setGenStatus("Generating voice audio…");
-const audioPairs = await Promise.all(
-Object.entries(txMap).map(async ([code, tx]) => {
-const url = await textToSpeech(tx, code);
-return [code, url || ""] as [string, string];
-})
-);
-const audioMap: Record<string,string> = Object.fromEntries(audioPairs.filter(([,u]) => u));
+const audioMap: Record<string,string> = {};
 setAudioUrls(audioMap);
+
 setGenStatus("");
 setPhase("done");
 }
