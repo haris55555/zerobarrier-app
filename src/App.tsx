@@ -150,15 +150,14 @@ button:active{transform:scale(0.97);}
 // ── VOICE RECORDER ───────────────────────────────────────────────────
 function VoiceRecorder({ lang, langs, tone, onSend, onCancel }: {
 lang: string; langs: string[]; tone: string;
-onSend: (text: string, audioUrls: Record<string,string>) => void;
+onSend: (text: string) => void;
 onCancel: () => void;
 }) {
 const [phase, setPhase] = useState<"idle"|"recording"|"processing"|"done">("idle");
 const [secs, setSecs] = useState(0);
 const [transcript, setTranscript] = useState("");
 const [translations, setTranslations] = useState<Record<string,string>>({});
-const [audioUrls, setAudioUrls] = useState<Record<string,string>>({});
-const [genStatus, setGenStatus] = useState("");
+
 const timerRef = useRef<ReturnType<typeof setInterval>|null>(null);
 const recognRef = useRef<any>(null);
 const langData = getLang(lang);
@@ -228,24 +227,12 @@ setPhase("processing");
 setTranscript(text);
 
 // Step 1: Translate to all other languages
-setGenStatus("Translating to all languages…");
 const targets = LANGS.filter(l => !langs.includes(l.code));
 const pairs = await Promise.all(targets.map(async l => [l.code, await aiTranslate(text, lang, l.code, tone)]));
 const txMap: Record<string,string> = Object.fromEntries(pairs);
 langs.forEach(c => { txMap[c] = text; });
 setTranslations(txMap);
 
-// Step 2: Generate voice audio for each language
-setGenStatus("Generating voice audio…");
-const audioPairs = await Promise.all(
-    Object.entries(txMap).filter(([code]) => langs.includes(code)).map(async ([code, tx]) => {
-const url = await textToSpeech(tx, code);
-return [code, url || ""] as [string, string];
-})
-);
-const audioMap: Record<string,string> = Object.fromEntries(audioPairs.filter(([,u]) => u));
-setAudioUrls(audioMap);
-setGenStatus("");
 setPhase("done");
 }
 
@@ -613,7 +600,7 @@ timestamp:Date.now(),
 setBusy(false);
 }
 
-async function sendVoice(transcript: string, audioUrls: Record<string,string>) {
+async function sendVoice(transcript: string) {
 setBusy(true);
 setShowVoice(false);
 const targets = LANGS.filter(l=>!user.langs.includes(l.code));
@@ -622,7 +609,7 @@ const translations: Record<string,string> = Object.fromEntries(pairs);
 user.langs.forEach((c:string)=>{ translations[c]=transcript; });
 await push(ref(db,"messages"),{
 text:transcript, type:"voice", lang:user.primaryLang, langs:user.langs, tone,
-translations, audioUrls,
+translations,
 senderName:user.name, senderFlag:myL.flag, senderId:userId.current,
 time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
 timestamp:Date.now(),
@@ -816,3 +803,4 @@ const [user, setUser] = useState<any>(null);
 if (!user) return <Onboarding onStart={setUser}/>;
 return <Chat user={user} onLogout={()=>{ setUser(null); }}/>;
 }
+
