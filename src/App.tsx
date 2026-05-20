@@ -174,7 +174,6 @@ onCancel: () => void;
 const [phase, setPhase] = useState<"idle"|"recording"|"processing"|"done">("idle");
 const [secs, setSecs] = useState(0);
 const [transcript, setTranscript] = useState("");
-const [translations, setTranslations] = useState<Record<string,string>>({});
 const [statusMsg, setStatusMsg] = useState("");
 const [permError, setPermError] = useState(false);
 const timerRef = useRef<ReturnType<typeof setInterval>|null>(null);
@@ -312,7 +311,7 @@ return (
 </div>
 <div style={{fontSize:13,lineHeight:1.6,marginBottom:8}}>{transcript}</div>
 <div style={{color:SUB,fontSize:11}}>
-✅ Translated to {Object.keys(translations).length} languages · Recipients tap ▶ to hear in their language
+✅ Ready to send · Recipients tap ▶ to hear in their language
 </div>
 </div>
 <div style={{display:"flex",gap:8,marginTop:12}}>
@@ -656,16 +655,19 @@ setBusy(false);
 async function sendVoice(transcript: string) {
 setBusy(true);
 setShowVoice(false);
-const targets = LANGS.filter(l=>!user.langs.includes(l.code));
-const pairs = await Promise.all(targets.map(async l=>[l.code, await aiTranslate(transcript,user.primaryLang,l.code,tone)]));
-const translations: Record<string,string> = Object.fromEntries(pairs);
-user.langs.forEach((c:string)=>{ translations[c]=transcript; });
+// Send IMMEDIATELY — no upfront translation
+// Each receiver translates lazily in their own language when they tap play
 await push(ref(db,"messages"),{
-text:transcript, type:"voice", lang:user.primaryLang, langs:user.langs, tone,
-translations,
-senderName:user.name, senderFlag:myL.flag, senderId:userId.current,
-time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
-timestamp:Date.now(),
+text: transcript,
+type: "voice",
+lang: user.primaryLang, // sender's language
+langs: user.langs,
+tone,
+senderName: user.name,
+senderFlag: myL.flag,
+senderId: userId.current,
+time: new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
+timestamp: Date.now(),
 });
 setBusy(false);
 }
