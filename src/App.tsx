@@ -142,6 +142,7 @@ body { font-family:'Outfit',sans-serif; background:${BG}; color:#fff; }
 @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,107,0.4)}50%{box-shadow:0 0 0 16px rgba(255,107,107,0)}}
 @keyframes spin2{to{transform:rotate(360deg)}}
 @keyframes waveBar{from{transform:scaleY(0.15)}to{transform:scaleY(1)}}
+@keyframes playBar{from{width:0%}to{width:100%}}
 input::placeholder{color:rgba(255,255,255,0.2);}
 input:focus{outline:none;border-color:rgba(0,255,178,0.4)!important;}
 button:active{transform:scale(0.97);}
@@ -243,13 +244,9 @@ es: "¡Hola! Quería compartir algo contigo hoy.",
 text = DEMO[lang] || DEMO.en;
 }
 
+// Just transcribe — NO translation here
+// Translation happens lazily per receiver in VoiceBubble
 setTranscript(text);
-setStatusMsg("Translating to all languages…");
-const targets = LANGS.filter(l => !langs.includes(l.code));
-const pairs = await Promise.all(targets.map(async l => [l.code, await aiTranslate(text, lang, l.code, tone)]));
-const txMap: Record<string,string> = Object.fromEntries(pairs);
-langs.forEach(c => { txMap[c] = text; });
-setTranslations(txMap);
 setStatusMsg("");
 setPhase("done");
 }
@@ -329,57 +326,94 @@ return (
 );
 }
 
-// ── VOICE BUBBLE ─────────────────────────────────────────────────────
-function VoiceBubble({ msg, myLang, isMe }: { msg: any; myLang: string; isMe: boolean }) {
+// ── VOICE BUBBLE — fully lazy: translate + audio only when tapped ─────
+function VoiceBubble({ msg, myLang, myLangs, isMe }: { msg: any; myLang: string; myLangs: string[]; isMe: boolean }) {
 const [playing, setPlaying] = useState(false);
-const [showText, setShowText] = useState(false);
+const [loading, setLoading] = useState(false);
+const [translatedText, setTranslatedText] = useState<string|null>(null);
+const [cachedUrl, setCachedUrl] = useState<string|null>(null);
 const audioRef = useRef<HTMLAudioElement|null>(null);
-
-const myAudioUrl = msg.audioUrls?.[myLang];
-const displayText = msg.translations?.[myLang] || msg.text;
 const srcLang = getLang(msg.lang);
-const color = isMe ? GREEN : "#4ECDC4";
 
-function playAudio() {
-if (!myAudioUrl) return;
-if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; setPlaying(false); return; }
-const audio = new Audio(myAudioUrl);
+// Sender already has their own audio from original recording
+// Everyone else gets translate+audio on demand
+
+async function handlePlay() {
+if (audioRef.current) {
+audioRef.current.pause(); audioRef.current = null; setPlaying(false); return;
+}
+
+// If cached — just play
+if (cachedUrl) {
+const audio = new Audio(cachedUrl);
+audioRef.current = audio;
+setPlaying(true);
+audio.onended = () => { setPlaying(false); audioRef.current = null; };
+audio.play().catch(() => setPlaying(false));
+return;
+}
+
+setLoading(true);
+
+// Step 1: Translate to my language (skip if I understand sender language)
+const alreadyUnderstands = myLangs.includes(msg.lang);
+let textToSpeak = msg.text;
+if (!alreadyUnderstands) {
+textToSpeak = await aiTranslate(msg.text, msg.lang, myLang, msg.tone || "casual");
+setTranslatedText(textToSpeak);
+}
+
+// Step 2: Generate audio in my language
+const url = await textToSpeech(textToSpeak, myLang);
+setLoading(false);
+
+if (!url) {
+alert("Could not generate audio. Please try again.");
+return;
+}
+
+setCachedUrl(url);
+const audio = new Audio(url);
 audioRef.current = audio;
 setPlaying(true);
 audio.onended = () => { setPlaying(false); audioRef.current = null; };
 audio.play().catch(() => setPlaying(false));
 }
 
-return (
-<div style={{padding:"12px 14px",borderRadius:16,borderTopRightRadius:isMe?4:16,borderTopLeftRadius:isMe?16:4,background:isMe?`linear-gradient(135deg,#007A55,#00B4D8)`:"rgba(255,255,255,0.08)",boxShadow:isMe?"0 4px 16px rgba(0,255,178,0.15)":"none",maxWidth:"100%"}}>
-{/* Voice player */}
-<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:myAudioUrl?10:0}}>
-{myAudioUrl ? (
-<button onClick={playAudio} style={{width:36,height:36,borderRadius:"50%",background:playing?`rgba(0,255,178,0.3)`:"rgba(255,255,255,0.15)",border:`1.5px solid ${playing?GREEN:"rgba(255,255,255,0.2)"}`,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-{playing?"⏹":"▶"}
-</button>
-) : (
-<div style={{width:36,height:36,borderRadius:"50%",background:"rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>🎙️</div>
-)}
-<div style={{flex:1}}>
-<div style={{height:3,background:"rgba(255,255,255,0.15)",borderRadius:3}}>
-{playing&&<div style={{width:"60%",height:"100%",background:GREEN,borderRadius:3,transition:"width 0.1s"}}/>}
-</div>
-<div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
-<span style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>
-{myAudioUrl ? `🔊 ${getLang(myLang).label} voice` : "🎙️ voice note"}
-</span>
-{!myAudioUrl && <span style={{color:"rgba(255,255,255,0.3)",fontSize:10}}>audio generating…</span>}
-</div>
-</div>
-</div>
+const alreadyUnderstands = myLangs.includes(msg.lang);
+const shownText = translatedText || (alreadyUnderstands ? msg.text : msg.text);
 
-{/* Transcript */}
+return (
+<div style={{padding:"12px 14px",borderRadius:16,borderTopRightRadius:isMe?4:16,borderTopLeftRadius:isMe?16:4,background:isMe?"linear-gradient(135deg,#007A55,#00B4D8)":"rgba(255,255,255,0.08)",boxShadow:isMe?"0 4px 16px rgba(0,255,178,0.15)":"none",maxWidth:"100%"}}>
+<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+<button onClick={handlePlay} style={{width:44,height:44,borderRadius:"50%",background:playing?"rgba(255,107,107,0.2)":loading?"rgba(0,255,178,0.15)":"rgba(255,255,255,0.15)",border:`1.5px solid ${playing?"#FF6B6B":loading?GREEN:"rgba(255,255,255,0.25)"}`,cursor:"pointer",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+{loading ? "⟳" : playing ? "⏹" : "▶"}
+</button>
+<div style={{flex:1}}>
+<div style={{height:3,background:"rgba(255,255,255,0.15)",borderRadius:3,overflow:"hidden"}}>
+{playing&&<div style={{height:"100%",background:GREEN,borderRadius:3,animation:"playBar 3s linear forwards"}}/>}
+</div>
+<div style={{marginTop:5,fontSize:11,color:"rgba(255,255,255,0.45)"}}>
+{loading
+? `Translating & generating ${getLang(myLang).label} voice…`
+: playing
+? `Playing in ${getLang(myLang).label} ${getLang(myLang).flag}`
+: cachedUrl
+? `Tap to replay in ${getLang(myLang).label} ${getLang(myLang).flag}`
+: `▶ Tap to hear in ${getLang(myLang).label} ${getLang(myLang).flag}`}
+</div>
+</div>
+</div>
 <div style={{borderTop:"1px solid rgba(255,255,255,0.1)",paddingTop:8}}>
 <div style={{color:GREEN,fontSize:9,letterSpacing:1,fontWeight:700,marginBottom:4}}>
-TRANSCRIPT {isMe?"":"· translated from "+srcLang.label}
+🎙️ {isMe ? "YOUR VOICE NOTE" : `FROM ${srcLang.flag} ${srcLang.label.toUpperCase()}`}
 </div>
-<div style={{fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.6}}>{displayText}</div>
+<div style={{fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.6}}>{shownText}</div>
+{!alreadyUnderstands && !translatedText && !isMe && (
+<div style={{color:"rgba(255,255,255,0.3)",fontSize:11,marginTop:4}}>
+Tap ▶ to translate & hear in {getLang(myLang).label}
+</div>
+)}
 </div>
 </div>
 );
@@ -423,7 +457,7 @@ return (
 </div>
 
 {msg.type==="voice" ? (
-<VoiceBubble msg={msg} myLang={myPrimary} isMe={isMe}/>
+<VoiceBubble msg={msg} myLang={myPrimary} myLangs={myLangs} isMe={isMe}/>
 ) : (
 <div style={{padding:"11px 14px",borderRadius:16,borderTopRightRadius:isMe?4:16,borderTopLeftRadius:isMe?16:4,fontSize:14,lineHeight:1.55,color:"#fff",maxWidth:"100%",wordBreak:"break-word",background:isMe?`linear-gradient(135deg,#007A55,#00B4D8)`:"rgba(255,255,255,0.08)",boxShadow:isMe?"0 4px 16px rgba(0,255,178,0.15)":"none"}}>
 {displayText}
