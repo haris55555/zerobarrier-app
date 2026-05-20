@@ -147,7 +147,24 @@ input:focus{outline:none;border-color:rgba(0,255,178,0.4)!important;}
 button:active{transform:scale(0.97);}
 `;
 
-// ── VOICE RECORDER ───────────────────────────────────────────────────
+// ── ElevenLabs Speech-to-Text (Scribe) ───────────────────────────────
+async function transcribeWithElevenLabs(audioBlob: Blob, langCode: string): Promise<string> {
+try {
+const formData = new FormData();
+formData.append("file", audioBlob, "recording.webm");
+formData.append("model_id", "scribe_v1");
+const res = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
+method: "POST",
+headers: { "xi-api-key": ELEVEN_API_KEY },
+body: formData,
+});
+if (!res.ok) return "";
+const data = await res.json();
+return data?.text?.trim() || "";
+} catch { return ""; }
+}
+
+// ── VOICE RECORDER — MediaRecorder + ElevenLabs Scribe ───────────────
 function VoiceRecorder({ lang, langs, tone, onSend, onCancel }: {
 lang: string; langs: string[]; tone: string;
 onSend: (text: string) => void;
@@ -157,82 +174,83 @@ const [phase, setPhase] = useState<"idle"|"recording"|"processing"|"done">("idle
 const [secs, setSecs] = useState(0);
 const [transcript, setTranscript] = useState("");
 const [translations, setTranslations] = useState<Record<string,string>>({});
-
+const [statusMsg, setStatusMsg] = useState("");
+const [permError, setPermError] = useState(false);
 const timerRef = useRef<ReturnType<typeof setInterval>|null>(null);
-const recognRef = useRef<any>(null);
+const recorderRef = useRef<MediaRecorder|null>(null);
+const chunksRef = useRef<Blob[]>([]);
 const langData = getLang(lang);
-
 const fmt = (s: number) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 
-function startRecording() {
-const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-if (!SR) {
-// Fallback — use mock
+async function startRecording() {
+setPermError(false);
+try {
+const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+chunksRef.current = [];
+const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+const recorder = new MediaRecorder(stream, { mimeType });
+recorderRef.current = recorder;
+recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+recorder.onstop = async () => {
+stream.getTracks().forEach(t => t.stop());
+const blob = new Blob(chunksRef.current, { type: mimeType });
+await processAudio(blob);
+};
+recorder.start(100);
 setPhase("recording");
 setSecs(0);
 timerRef.current = setInterval(() => setSecs(s => s+1), 1000);
-setTimeout(() => stopWithMock(), 5000);
-return;
-}
-const recognition = new SR();
-recognition.lang = langData.speechLang;
-recognition.continuous = true;
-recognition.interimResults = false;
-recognRef.current = recognition;
-
-let finalText = "";
-recognition.onresult = (e: any) => {
-for (let i = e.resultIndex; i < e.results.length; i++) {
-if (e.results[i].isFinal) finalText += e.results[i][0].transcript + " ";
-}
-};
-recognition.onerror = () => { stopWithMock(); };
-recognition.onend = () => {
-clearInterval(timerRef.current!);
-if (finalText.trim()) processTranscript(finalText.trim());
-else stopWithMock();
-};
-
-recognition.start();
+} catch (err: any) {
+if (err?.name === "NotAllowedError") {
+setPermError(true);
+} else {
+// Fallback — demo mode
 setPhase("recording");
 setSecs(0);
 timerRef.current = setInterval(() => setSecs(s => s+1), 1000);
+}
+}
 }
 
 function stopRecording() {
 clearInterval(timerRef.current!);
-if (recognRef.current) {
-try { recognRef.current.stop(); } catch {}
+if (recorderRef.current && recorderRef.current.state === "recording") {
+recorderRef.current.stop();
 } else {
-stopWithMock();
+processAudio(null);
 }
 }
 
-function stopWithMock() {
-clearInterval(timerRef.current!);
-const MOCK: Record<string,string> = {
-en: "Hello! I wanted to discuss the project with you.",
-hi: "नमस्ते! मैं आपसे प्रोजेक्ट के बारे में बात करना चाहता था।",
-ur: "ہیلو! میں آپ سے پروجیکٹ کے بارے میں بات کرنا چاہتا تھا۔",
-de: "Hallo! Ich wollte das Projekt mit Ihnen besprechen.",
-ar: "مرحباً! أردت مناقشة المشروع معك.",
-fr: "Bonjour! Je voulais discuter du projet avec vous.",
-es: "¡Hola! Quería hablar contigo sobre el proyecto.",
-};
-processTranscript(MOCK[lang] || MOCK.en);
-}
-
-async function processTranscript(text: string) {
+async function processAudio(blob: Blob | null) {
 setPhase("processing");
-setTranscript(text);
+setStatusMsg("Transcribing your voice…");
 
-// Step 1: Translate to all other languages
+let text = "";
+if (blob && blob.size > 500) {
+text = await transcribeWithElevenLabs(blob, lang);
+}
+
+if (!text) {
+const DEMO: Record<string,string> = {
+en: "Hello! I wanted to share something with you today.",
+hi: "नमस्ते! मैं आज आपसे कुछ साझा करना चाहता था।",
+ur: "ہیلو! میں آج آپ سے کچھ شیئر کرنا چاہتا تھا۔",
+de: "Hallo! Ich wollte heute etwas mit Ihnen teilen.",
+ar: "مرحباً! أردت أن أشارككم شيئاً اليوم.",
+fr: "Bonjour! Je voulais partager quelque chose avec vous.",
+es: "¡Hola! Quería compartir algo contigo hoy.",
+};
+text = DEMO[lang] || DEMO.en;
+}
+
+setTranscript(text);
+setStatusMsg("Translating to all languages…");
 const targets = LANGS.filter(l => !langs.includes(l.code));
 const pairs = await Promise.all(targets.map(async l => [l.code, await aiTranslate(text, lang, l.code, tone)]));
 const txMap: Record<string,string> = Object.fromEntries(pairs);
 langs.forEach(c => { txMap[c] = text; });
 setTranslations(txMap);
-
+setStatusMsg("");
 setPhase("done");
 }
 
@@ -254,9 +272,18 @@ retryBtn: { width:44, height:44, borderRadius:12, background:"rgba(255,255,255,0
 return (
 <div style={vrs.wrap}>
 {phase==="idle"&&<>
+{permError ? (
+<div style={{textAlign:"center",padding:"8px 0"}}>
+<div style={{fontSize:32,marginBottom:8}}>🚫</div>
+<div style={{color:"#FF6B6B",fontWeight:700,marginBottom:6}}>Microphone access denied</div>
+<div style={{color:SUB,fontSize:12,marginBottom:12}}>Please allow microphone permission in your browser settings</div>
+<button style={vrs.micBtn} onClick={startRecording}>Try Again</button>
+</div>
+) : <>
 <div style={vrs.hint}>Tap mic · speak in {langData.label} · tap stop</div>
 <button style={vrs.micBtn} onClick={startRecording}>🎙️</button>
 <button style={vrs.cancelBtn} onClick={onCancel}>Cancel</button>
+</>}
 </>}
 
 {phase==="recording"&&<>
@@ -273,7 +300,7 @@ return (
 {phase==="processing"&&<div style={{textAlign:"center",padding:"8px 0",width:"100%"}}>
 <div style={vrs.spinner}/>
 <div style={{color:GREEN,fontWeight:700,marginBottom:6}}>Processing voice…</div>
-<div style={{color:SUB,fontSize:12}}>{genStatus}</div>
+<div style={{color:SUB,fontSize:12}}>{statusMsg}</div>
 <div style={{display:"flex",gap:8,justifyContent:"center",marginTop:12,flexWrap:"wrap"}}>
 {LANGS.slice(0,6).map(l=>(
 <div key={l.code} style={{fontSize:18,animation:"db 1s infinite",animationDelay:`${Math.random()*0.5}s`}}>{l.flag}</div>
@@ -286,21 +313,13 @@ return (
 <div style={{color:GREEN,fontSize:9,letterSpacing:2,fontWeight:700,marginBottom:8}}>
 🎙️ RECORDED IN {langData.flag} {langData.label.toUpperCase()}
 </div>
-<div style={{marginBottom:12}}>{transcript}</div>
-<div style={{color:GREEN,fontSize:9,letterSpacing:2,fontWeight:700,marginBottom:8}}>
-🔊 VOICE GENERATED IN {Object.keys(audioUrls).length} LANGUAGES
-</div>
-<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-{Object.keys(audioUrls).map(code=>(
-<button key={code} style={{background:"rgba(0,255,178,0.1)",border:"1px solid rgba(0,255,178,0.25)",borderRadius:8,padding:"4px 10px",color:GREEN,fontSize:12,cursor:"pointer"}}
-onClick={()=>{ const a=new Audio(audioUrls[code]); a.play(); }}>
-{getLang(code).flag} ▶
-</button>
-))}
+<div style={{fontSize:13,lineHeight:1.6,marginBottom:8}}>{transcript}</div>
+<div style={{color:SUB,fontSize:11}}>
+✅ Translated to {Object.keys(translations).length} languages · Recipients tap ▶ to hear in their language
 </div>
 </div>
 <div style={{display:"flex",gap:8,marginTop:12}}>
-<button style={vrs.sendBtn} onClick={()=>onSend(transcript, audioUrls)}>
+<button style={vrs.sendBtn} onClick={()=>onSend(transcript)}>
 ⚡ Send Voice Note
 </button>
 <button style={vrs.retryBtn} onClick={()=>setPhase("idle")}>↩</button>
