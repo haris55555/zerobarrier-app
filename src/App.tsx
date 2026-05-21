@@ -18,25 +18,14 @@ const db = getDatabase(app);
 // ── ElevenLabs TTS ───────────────────────────────────────────────────
 const ELEVEN_API_KEY = "5bffab41a92aa474730a40d3145fcb803d4cae431c4e3273cd4407f6f5d00186";
 
-// Voice IDs for different languages - ElevenLabs multilingual voices
-const VOICE_MAP: Record<string,string> = {
-en: "EXAVITQu4vr4xnSDxMaL", // Sarah - English
-de: "EXAVITQu4vr4xnSDxMaL", // multilingual
-hi: "EXAVITQu4vr4xnSDxMaL", // multilingual
-ur: "EXAVITQu4vr4xnSDxMaL", // multilingual
-ar: "EXAVITQu4vr4xnSDxMaL", // multilingual
-fr: "EXAVITQu4vr4xnSDxMaL", // multilingual
-es: "EXAVITQu4vr4xnSDxMaL", // multilingual
-zh: "EXAVITQu4vr4xnSDxMaL", // multilingual
-ja: "EXAVITQu4vr4xnSDxMaL", // multilingual
-pt: "EXAVITQu4vr4xnSDxMaL",
-ru: "EXAVITQu4vr4xnSDxMaL",
-ko: "EXAVITQu4vr4xnSDxMaL",
-};
+// ── ElevenLabs Voice IDs ─────────────────────────────────────────────
+// Male voices (multilingual)
+const MALE_VOICE_ID = "TxGEqnHWrfWFTfGW9XjX"; // Josh - deep natural male
+const FEMALE_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah - natural female
 
-async function textToSpeech(text: string, langCode: string): Promise<string|null> {
+async function textToSpeech(text: string, langCode: string, gender: string = "male"): Promise<string|null> {
 try {
-const voiceId = VOICE_MAP[langCode] || VOICE_MAP.en;
+const voiceId = gender === "female" ? FEMALE_VOICE_ID : MALE_VOICE_ID;
 const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
 method: "POST",
 headers: {
@@ -46,7 +35,12 @@ headers: {
 body: JSON.stringify({
 text,
 model_id: "eleven_multilingual_v2",
-voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+voice_settings: {
+stability: 0.45, // slight variation = more natural
+similarity_boost: 0.80,
+style: 0.35, // adds expressiveness
+use_speaker_boost: true,
+},
 }),
 });
 if (!res.ok) return null;
@@ -354,16 +348,17 @@ return;
 
 setLoading(true);
 
-// Step 1: Translate to my language (skip if I understand sender language)
+// Step 1: Translate to MY language (skip if I already understand sender's language)
 const alreadyUnderstands = myLangs.includes(msg.lang);
 let textToSpeak = msg.text;
-if (!alreadyUnderstands) {
+if (!alreadyUnderstands && msg.lang !== myLang) {
 textToSpeak = await aiTranslate(msg.text, msg.lang, myLang, msg.tone || "casual");
 setTranslatedText(textToSpeak);
 }
 
-// Step 2: Generate audio in my language
-const url = await textToSpeech(textToSpeak, myLang);
+// Step 2: Generate audio in MY language using SENDER's gender
+const senderGender = msg.senderGender || "male";
+const url = await textToSpeech(textToSpeak, myLang, senderGender);
 setLoading(false);
 
 if (!url) {
@@ -486,6 +481,7 @@ const [name, setName] = useState(saved?.name || "");
 const [selected, setSelected] = useState<string[]>(saved?.langs || []);
 const [primary, setPrimary] = useState<string|null>(saved?.primaryLang || null);
 const [tone, setTone] = useState(saved?.tone || "casual");
+const [gender, setGender] = useState(saved?.gender || "male");
 
 // If saved profile — jump straight in
 useEffect(() => {
@@ -574,8 +570,24 @@ onClick={()=>isSel?setPrimary(l.code):toggleLang(l.code)}>
 
 {step===3&&<div className="fade-in">
 <div style={os.tag}>STEP 3 OF 3</div>
-<div style={os.title}>Communication style</div>
-<div style={os.sub}>AI translates in this tone</div>
+<div style={os.title}>Your voice & style</div>
+<div style={os.sub}>This sets how your AI voice sounds to others</div>
+
+{/* Gender selector */}
+<div style={{color:"rgba(255,255,255,0.5)",fontSize:10,letterSpacing:2,marginBottom:10,fontWeight:700}}>YOUR VOICE GENDER</div>
+<div style={{display:"flex",gap:10,marginBottom:20}}>
+{[{code:"male",label:"Male",icon:"👨"},{code:"female",label:"Female",icon:"👩"}].map(g=>(
+<button key={g.code} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:10,padding:"14px",borderRadius:14,background:gender===g.code?"rgba(0,255,178,0.08)":"rgba(255,255,255,0.04)",border:`1.5px solid ${gender===g.code?"rgba(0,255,178,0.4)":BORDER}`,cursor:"pointer",transition:"all 0.18s"}}
+onClick={()=>setGender(g.code)}>
+<span style={{fontSize:28}}>{g.icon}</span>
+<span style={{color:gender===g.code?GREEN:"#fff",fontWeight:700,fontSize:15}}>{g.label}</span>
+{gender===g.code&&<span style={{color:GREEN,fontSize:16}}>✓</span>}
+</button>
+))}
+</div>
+
+{/* Tone selector */}
+<div style={{color:"rgba(255,255,255,0.5)",fontSize:10,letterSpacing:2,marginBottom:10,fontWeight:700}}>COMMUNICATION STYLE</div>
 {TONES.map(t=>(
 <button key={t.code} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderRadius:14,background:tone===t.code?"rgba(0,255,178,0.08)":"rgba(255,255,255,0.04)",border:`1.5px solid ${tone===t.code?"rgba(0,255,178,0.4)":BORDER}`,cursor:"pointer",transition:"all 0.18s",width:"100%",marginBottom:10,position:"relative"}}
 onClick={()=>setTone(t.code)}>
@@ -590,7 +602,7 @@ onClick={()=>setTone(t.code)}>
 <div style={{display:"flex",gap:10,marginTop:8}}>
 <button style={os.back} onClick={()=>setStep(2)}>←</button>
 <button style={{...os.btn,flex:1}} onClick={()=>{
-const profile={name:name.trim(),langs:selected,primaryLang:primary,tone};
+const profile={name:name.trim(),langs:selected,primaryLang:primary,tone,gender};
 saveProfile(profile);
 onStart(profile);
 }}>Enter ZeroBarrier ⚡</button>
@@ -602,7 +614,7 @@ onStart(profile);
 }
 
 // ── MAIN CHAT ─────────────────────────────────────────────────────────
-function Chat({ user, onLogout }: { user: any; onLogout: () => void }) {
+function Chat({ user, roomId, onLogout }: { user: any; roomId: string; onLogout: () => void }) {
 const [messages, setMessages] = useState<any[]>([]);
 const [input, setInput] = useState("");
 const [busy, setBusy] = useState(false);
@@ -616,7 +628,7 @@ const userId = useRef(getUserId());
 const myL = getLang(user.primaryLang);
 
 useEffect(() => {
-const msgsRef = ref(db, "messages");
+const msgsRef = ref(db, `rooms/${roomId}/messages`);
 const unsub = onValue(msgsRef, snap => {
 const data = snap.val();
 if (!data) return;
@@ -643,7 +655,7 @@ const targets = LANGS.filter(l=>!user.langs.includes(l.code));
 const pairs = await Promise.all(targets.map(async l=>[l.code, await aiTranslate(text,user.primaryLang,l.code,tone)]));
 const translations: Record<string,string> = Object.fromEntries(pairs);
 user.langs.forEach((c:string)=>{ translations[c]=text; });
-await push(ref(db,"messages"),{
+await push(ref(db,`rooms/${roomId}/messages`),{
 text, type:"text", lang:user.primaryLang, langs:user.langs, tone, translations,
 senderName:user.name, senderFlag:myL.flag, senderId:userId.current,
 time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
@@ -657,12 +669,13 @@ setBusy(true);
 setShowVoice(false);
 // Send IMMEDIATELY — no upfront translation
 // Each receiver translates lazily in their own language when they tap play
-await push(ref(db,"messages"),{
+await push(ref(db,`rooms/${roomId}/messages`),{
 text: transcript,
 type: "voice",
-lang: user.primaryLang, // sender's language
+lang: user.primaryLang,
 langs: user.langs,
 tone,
+senderGender: user.gender || "male",
 senderName: user.name,
 senderFlag: myL.flag,
 senderId: userId.current,
@@ -695,7 +708,9 @@ return (
 <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${GREEN},#00B4D8)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>⚡</div>
 <div>
 <div style={{color:"#fff",fontWeight:700,fontSize:16}}>ZeroBarrier</div>
-<div style={{color:SUB,fontSize:11}}>Global Room · <span style={{color:GREEN}}>{onlineCount} online</span></div>
+<div style={{color:SUB,fontSize:11}}>
+{roomId==="global" ? "Global Room" : "Private Chat"} · <span style={{color:GREEN}}>{onlineCount} online</span>
+</div>
 </div>
 </div>
 <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -825,21 +840,39 @@ Clear profile & start over
 
 {tab==="share"&&(
 <div style={{flex:1,overflowY:"auto",padding:14,zIndex:1}}>
+{/* Private room link */}
 <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:"24px 20px",marginBottom:12,textAlign:"center"}}>
-<div style={{fontSize:40,marginBottom:12}}>🔗</div>
-<div style={{color:"#fff",fontWeight:700,fontSize:18,marginBottom:8}}>Invite anyone — no app needed</div>
-<div style={{color:SUB,fontSize:13,lineHeight:1.65,marginBottom:20}}>Share this link. They pick their language. You both talk — each hearing the other in their own language.</div>
-<div style={{display:"flex",alignItems:"center",background:"rgba(0,255,178,0.07)",border:"1px solid rgba(0,255,178,0.2)",borderRadius:12,padding:"12px 16px",gap:10,marginBottom:16}}>
-<span style={{color:GREEN,fontSize:13,flex:1,textAlign:"left",fontFamily:"monospace"}}>zerobarrier-app.vercel.app</span>
-<button style={{background:GREEN,color:"#080612",border:"none",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}
+<div style={{fontSize:40,marginBottom:12}}>🔐</div>
+<div style={{color:"#fff",fontWeight:700,fontSize:18,marginBottom:8}}>Your Private Chat Link</div>
+<div style={{color:SUB,fontSize:13,lineHeight:1.65,marginBottom:16}}>Share this link with ONE person. Only you two will see each other's messages.</div>
+<div style={{display:"flex",alignItems:"center",background:"rgba(0,255,178,0.07)",border:"1px solid rgba(0,255,178,0.2)",borderRadius:12,padding:"12px 16px",gap:10,marginBottom:12}}>
+<span style={{color:GREEN,fontSize:12,flex:1,textAlign:"left",fontFamily:"monospace",wordBreak:"break-all"}}>
+zerobarrier-app.vercel.app?room={userId.current}
+</span>
+<button style={{background:GREEN,color:"#080612",border:"none",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}
+onClick={()=>navigator.clipboard?.writeText(`https://zerobarrier-app.vercel.app?room=${userId.current}`).catch(()=>{})}>
+Copy
+</button>
+</div>
+<div style={{color:SUB,fontSize:12}}>Anyone who opens this link chats ONLY with you 🔐</div>
+</div>
+
+{/* Global room */}
+<div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:"20px 16px",marginBottom:12}}>
+<div style={{color:GREEN,fontSize:10,letterSpacing:2,fontWeight:700,marginBottom:12}}>🌍 GLOBAL ROOM LINK</div>
+<div style={{color:SUB,fontSize:13,marginBottom:12}}>Anyone can join and chat with everyone</div>
+<div style={{display:"flex",alignItems:"center",background:"rgba(255,255,255,0.05)",border:`1px solid ${BORDER}`,borderRadius:12,padding:"12px 16px",gap:10}}>
+<span style={{color:"rgba(255,255,255,0.6)",fontSize:12,flex:1,fontFamily:"monospace"}}>zerobarrier-app.vercel.app</span>
+<button style={{background:"rgba(255,255,255,0.1)",color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}
 onClick={()=>navigator.clipboard?.writeText("https://zerobarrier-app.vercel.app").catch(()=>{})}>
 Copy
 </button>
 </div>
 </div>
+
 <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:"20px 16px"}}>
 <div style={{color:GREEN,fontSize:10,letterSpacing:2,fontWeight:700,marginBottom:16}}>🎙️ HOW VOICE WORKS</div>
-{[["1.","Tap the mic 🎙️ and speak in your language"],["2.","AI transcribes your voice to text"],["3.","Text is translated to all other languages"],["4.","ElevenLabs generates natural voice audio in each language"],["5.","Each person hears your message in their own language 🌍"]].map(([n,t])=>(
+{[["1.","Tap the mic 🎙️ and speak in your language"],["2.","AI transcribes your voice instantly"],["3.","Receiver taps ▶ to hear it in their language"],["4.","Male/Female voice matches the sender's gender"],["5.","Works for 50+ languages 🌍"]].map(([n,t])=>(
 <div key={n} style={{display:"flex",gap:10,marginBottom:10,fontSize:13}}>
 <span style={{color:GREEN,fontWeight:700}}>{n}</span>
 <span style={{color:SUB}}>{t}</span>
@@ -855,6 +888,10 @@ Copy
 // ── ROOT ──────────────────────────────────────────────────────────────
 export default function ZeroBarrier() {
 const [user, setUser] = useState<any>(null);
+
+// Get room from URL — if ?room=xxx use that room, else use "global"
+const roomId = new URLSearchParams(window.location.search).get("room") || "global";
+
 if (!user) return <Onboarding onStart={setUser}/>;
-return <Chat user={user} onLogout={()=>{ setUser(null); }}/>;
+return <Chat user={user} roomId={roomId} onLogout={()=>{ setUser(null); }}/>;
 }
