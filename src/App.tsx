@@ -19,11 +19,18 @@ const db = getDatabase(app);
 const ELEVEN_API_KEY = "5bffab41a92aa474730a40d3145fcb803d4cae431c4e3273cd4407f6f5d00186";
 
 // ── ElevenLabs Voice IDs ─────────────────────────────────────────────
-// Male voices (multilingual)
-const MALE_VOICE_ID = "TxGEqnHWrfWFTfGW9XjX"; // Josh - deep natural male
-const FEMALE_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah - natural female
+const MALE_VOICE_ID = "pNInz6obpgDQGcFmaJgB"; // Adam - male multilingual
+const FEMALE_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah - female multilingual
+
+// Browser TTS lang codes
+const BROWSER_TTS_LANG: Record<string,string> = {
+en:"en-US", hi:"hi-IN", ur:"ur-PK", de:"de-DE", fr:"fr-FR",
+es:"es-ES", ar:"ar-SA", zh:"zh-CN", ja:"ja-JP", pt:"pt-BR",
+ru:"ru-RU", ko:"ko-KR",
+};
 
 async function textToSpeech(text: string, langCode: string, gender: string = "male"): Promise<string|null> {
+// Try ElevenLabs first
 try {
 const voiceId = gender === "female" ? FEMALE_VOICE_ID : MALE_VOICE_ID;
 const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
@@ -36,17 +43,40 @@ body: JSON.stringify({
 text,
 model_id: "eleven_multilingual_v2",
 voice_settings: {
-stability: 0.45, // slight variation = more natural
-similarity_boost: 0.80,
-style: 0.35, // adds expressiveness
+stability: 0.5,
+similarity_boost: 0.75,
+style: 0.3,
 use_speaker_boost: true,
 },
 }),
 });
-if (!res.ok) return null;
+if (res.ok) {
 const blob = await res.blob();
-return URL.createObjectURL(blob);
-} catch { return null; }
+if (blob.size > 100) return URL.createObjectURL(blob);
+}
+} catch {}
+
+// Fallback — browser built-in TTS (free, works everywhere)
+return new Promise((resolve) => {
+if (!window.speechSynthesis) { resolve(null); return; }
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = BROWSER_TTS_LANG[langCode] || "en-US";
+utterance.rate = 0.95;
+utterance.pitch = gender === "female" ? 1.2 : 0.85;
+
+// Try to find a matching voice
+const voices = window.speechSynthesis.getVoices();
+const match = voices.find(v =>
+v.lang.startsWith(BROWSER_TTS_LANG[langCode]?.slice(0,2) || "en") &&
+(gender === "female" ? v.name.toLowerCase().includes("female") || !v.name.toLowerCase().includes("male") : true)
+);
+if (match) utterance.voice = match;
+
+// Use browser TTS directly — return null so caller uses speechSynthesis
+window.speechSynthesis.cancel();
+window.speechSynthesis.speak(utterance);
+resolve("browser-tts"); // special signal
+});
 }
 
 // ── Claude Translation ───────────────────────────────────────────────
@@ -338,6 +368,15 @@ audioRef.current.pause(); audioRef.current = null; setPlaying(false); return;
 
 // If cached — just play
 if (cachedUrl) {
+if (cachedUrl === "browser-tts") {
+// Re-speak with browser TTS
+const textToPlay = translatedText || msg.text;
+const senderGender = msg.senderGender || "male";
+await textToSpeech(textToPlay, myLang, senderGender);
+setPlaying(true);
+setTimeout(() => setPlaying(false), (textToPlay.length / 15) * 1000 + 1000);
+return;
+}
 const audio = new Audio(cachedUrl);
 audioRef.current = audio;
 setPlaying(true);
@@ -362,7 +401,16 @@ const url = await textToSpeech(textToSpeak, myLang, senderGender);
 setLoading(false);
 
 if (!url) {
-alert("Could not generate audio. Please try again.");
+// Both ElevenLabs and browser TTS failed
+setLoading(false);
+return;
+}
+
+if (url === "browser-tts") {
+// Browser TTS already playing — just update state
+setPlaying(true);
+setCachedUrl("browser-tts");
+setTimeout(() => setPlaying(false), (textToSpeak.length / 15) * 1000 + 1000);
 return;
 }
 
