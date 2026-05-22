@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, push, onValue } from "firebase/database";
+import { getDatabase, ref, push, onValue, set, remove } from "firebase/database";
 
 // ── Firebase ─────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -687,10 +687,34 @@ const msgs = Object.entries(data)
 setMessages(msgs);
 });
 const onlineRef = ref(db, "presence");
-const onlineUnsub = onValue(onlineRef, snap => setOnlineCount(Object.keys(snap.val()||{}).length));
-// Register presence
-push(ref(db, `presence/${userId.current}`), {name:user.name,lang:user.primaryLang,ts:Date.now()});
-return () => { unsub(); onlineUnsub(); };
+const onlineUnsub = onValue(onlineRef, snap => {
+const data = snap.val() || {};
+// Count only recent presence (last 30 seconds)
+const now = Date.now();
+const activeCount = Object.values(data).filter((p: any) => now - (p.ts || 0) < 30000).length;
+setOnlineCount(Math.max(1, activeCount));
+});
+
+// Register presence — use set not push so it doesn't accumulate
+const myPresenceRef = ref(db, `presence/${userId.current}`);
+set(myPresenceRef, {name:user.name, lang:user.primaryLang, ts:Date.now(), online:true});
+
+// Update timestamp every 20 seconds to stay "online"
+const heartbeat = setInterval(() => {
+set(myPresenceRef, {name:user.name, lang:user.primaryLang, ts:Date.now(), online:true});
+}, 20000);
+
+// Remove presence when user leaves
+const handleUnload = () => remove(myPresenceRef);
+window.addEventListener("beforeunload", handleUnload);
+
+return () => {
+unsub();
+onlineUnsub();
+clearInterval(heartbeat);
+window.removeEventListener("beforeunload", handleUnload);
+remove(myPresenceRef);
+};
 }, []);
 
 useEffect(() => { bottomRef.current?.scrollIntoView({behavior:"smooth"}); }, [messages, showVoice]);
