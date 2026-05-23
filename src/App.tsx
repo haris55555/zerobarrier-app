@@ -358,6 +358,18 @@ const [cachedUrl, setCachedUrl] = useState<string|null>(null);
 const audioRef = useRef<HTMLAudioElement|null>(null);
 const srcLang = getLang(msg.lang);
 
+// Auto-translate text as soon as message arrives — no tap needed
+useEffect(() => {
+if (isMe) return; // sender sees their own text
+const alreadyUnderstands = myLangs.includes(msg.lang);
+if (alreadyUnderstands) return; // no translation needed
+if (msg.lang === myLang) return; // same language
+// Translate text immediately in background
+aiTranslate(msg.text, msg.lang, myLang, msg.tone || "casual").then(t => {
+setTranslatedText(t);
+});
+}, [msg.id]);
+
 // Sender already has their own audio from original recording
 // Everyone else gets translate+audio on demand
 
@@ -387,12 +399,17 @@ return;
 
 setLoading(true);
 
-// Step 1: Translate to MY language (skip if I already understand sender's language)
+// Step 1: Translate to MY language (use cached translation if already done)
 const alreadyUnderstands = myLangs.includes(msg.lang);
 let textToSpeak = msg.text;
 if (!alreadyUnderstands && msg.lang !== myLang) {
+// Use already translated text if available — no double translation
+if (translatedText) {
+textToSpeak = translatedText;
+} else {
 textToSpeak = await aiTranslate(msg.text, msg.lang, myLang, msg.tone || "casual");
 setTranslatedText(textToSpeak);
+}
 }
 
 // Step 2: Generate audio in MY language using SENDER's gender
@@ -423,7 +440,7 @@ audio.play().catch(() => setPlaying(false));
 }
 
 const alreadyUnderstands = myLangs.includes(msg.lang);
-const shownText = translatedText || (alreadyUnderstands ? msg.text : msg.text);
+const shownText = isMe ? msg.text : (translatedText || (alreadyUnderstands ? msg.text : msg.text));
 
 return (
 <div style={{padding:"12px 14px",borderRadius:16,borderTopRightRadius:isMe?4:16,borderTopLeftRadius:isMe?16:4,background:isMe?"linear-gradient(135deg,#007A55,#00B4D8)":"rgba(255,255,255,0.08)",boxShadow:isMe?"0 4px 16px rgba(0,255,178,0.15)":"none",maxWidth:"100%"}}>
@@ -448,14 +465,14 @@ return (
 </div>
 <div style={{borderTop:"1px solid rgba(255,255,255,0.1)",paddingTop:8}}>
 <div style={{color:GREEN,fontSize:9,letterSpacing:1,fontWeight:700,marginBottom:4}}>
-🎙️ {isMe ? "YOUR VOICE NOTE" : `FROM ${srcLang.flag} ${srcLang.label.toUpperCase()}`}
+🎙️ {isMe ? "YOUR VOICE NOTE" : `FROM ${srcLang.flag} ${srcLang.label.toUpperCase()} → ${getLang(myLang).flag} ${getLang(myLang).label.toUpperCase()}`}
 </div>
-<div style={{fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.6}}>{shownText}</div>
-{!alreadyUnderstands && !translatedText && !isMe && (
-<div style={{color:"rgba(255,255,255,0.3)",fontSize:11,marginTop:4}}>
-Tap ▶ to translate & hear in {getLang(myLang).label}
-</div>
+<div style={{fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.6}}>
+{shownText}
+{!isMe && !translatedText && !myLangs.includes(msg.lang) && (
+<span style={{color:SUB,fontSize:11}}> · translating…</span>
 )}
+</div>
 </div>
 </div>
 );
