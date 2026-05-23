@@ -1,6 +1,32 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Component } from "react";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, push, onValue, set, remove } from "firebase/database";
+
+// ── Error Boundary — prevents blank screen on any crash ───────────────
+class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: string}> {
+constructor(props: any) {
+super(props);
+this.state = { hasError: false, error: "" };
+}
+static getDerivedStateFromError(error: any) {
+return { hasError: true, error: error?.message || "Unknown error" };
+}
+render() {
+if (this.state.hasError) {
+return (
+<div style={{minHeight:"100vh",background:"#080612",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20,color:"#fff",textAlign:"center"}}>
+<div style={{fontSize:48,marginBottom:16}}>⚡</div>
+<div style={{fontWeight:800,fontSize:22,marginBottom:8}}>ZeroBarrier</div>
+<div style={{color:"rgba(255,255,255,0.5)",fontSize:14,marginBottom:24}}>Something went wrong. Tap to reload.</div>
+<button onClick={()=>window.location.reload()} style={{background:"#00FFB2",color:"#080612",border:"none",borderRadius:12,padding:"14px 28px",fontSize:16,fontWeight:700,cursor:"pointer"}}>
+Reload App
+</button>
+</div>
+);
+}
+return this.props.children;
+}
+}
 
 // ── Firebase ─────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -981,6 +1007,12 @@ const [user, setUser] = useState<any>(null);
 // Get room from URL — if ?room=xxx use that room, else use "global"
 const roomId = new URLSearchParams(window.location.search).get("room") || "global";
 
-if (!user) return <Onboarding onStart={setUser}/>;
-return <Chat user={user} roomId={roomId} onLogout={()=>{ setUser(null); }}/>;
+return (
+<ErrorBoundary>
+{!user
+? <Onboarding onStart={setUser}/>
+: <Chat user={user} roomId={roomId} onLogout={()=>setUser(null)}/>
+}
+</ErrorBoundary>
+);
 }
