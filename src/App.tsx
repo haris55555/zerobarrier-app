@@ -466,7 +466,11 @@ audio.play().catch(() => setPlaying(false));
 }
 
 const alreadyUnderstands = myLangs.includes(msg.lang);
-const shownText = isMe ? msg.text : (translatedText || (alreadyUnderstands ? msg.text : msg.text));
+const shownText = isMe
+? msg.text
+: alreadyUnderstands
+? msg.text
+: translatedText || "⟳ Translating...";
 
 return (
 <div style={{padding:"12px 14px",borderRadius:16,borderTopRightRadius:isMe?4:16,borderTopLeftRadius:isMe?16:4,background:isMe?"linear-gradient(135deg,#007A55,#00B4D8)":"rgba(255,255,255,0.08)",boxShadow:isMe?"0 4px 16px rgba(0,255,178,0.15)":"none",maxWidth:"100%"}}>
@@ -1016,4 +1020,3 @@ return (
 </ErrorBoundary>
 );
 }
-
