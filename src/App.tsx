@@ -384,29 +384,19 @@ const [cachedUrl, setCachedUrl] = useState<string|null>(null);
 const audioRef = useRef<HTMLAudioElement|null>(null);
 const srcLang = getLang(msg.lang);
 
-// Auto-translate text as soon as message arrives — no tap needed
+// Read pre-translated text from Firebase — no client-side translation needed
 useEffect(() => {
 if (isMe) return;
 if (!msg.text) return;
-
-// Get the sender's language and receiver's language
-const senderLang = msg.lang || "en";
-const receiverLang = myLang;
-
-// Always translate if languages are different
-if (senderLang === receiverLang) {
+// Check if translation is pre-stored in Firebase
+if (msg.translations && msg.translations[myLang]) {
+setTranslatedText(msg.translations[myLang]);
+} else if (msg.lang === myLang) {
 setTranslatedText(msg.text);
-return;
+} else {
+// Fallback — old messages without pre-translation
+setTranslatedText("⟳ Translation not available for this message");
 }
-
-// Translate immediately
-aiTranslate(msg.text, senderLang, receiverLang, msg.tone || "casual")
-.then(translated => {
-setTranslatedText(translated);
-})
-.catch(() => {
-setTranslatedText(msg.text); // fallback to original
-});
 }, [msg.id, myLang]);
 
 // Sender already has their own audio from original recording
@@ -438,14 +428,8 @@ return;
 
 setLoading(true);
 
-// Always use translated text for audio — wait for it if needed
-let textToSpeak = translatedText || msg.text;
-
-// If translation not ready yet — translate now
-if (!translatedText && msg.lang !== myLang) {
-textToSpeak = await aiTranslate(msg.text, msg.lang, myLang, msg.tone || "casual");
-setTranslatedText(textToSpeak);
-}
+// Use pre-translated text from Firebase
+let textToSpeak = msg.translations?.[myLang] || translatedText || msg.text;
 
 // Generate audio in receiver's language using sender's gender
 const senderGender = msg.senderGender || "male";
@@ -795,14 +779,23 @@ setBusy(false);
 async function sendVoice(transcript: string) {
 setBusy(true);
 setShowVoice(false);
-// Send IMMEDIATELY — no upfront translation
-// Each receiver translates lazily in their own language when they tap play
+
+// Pre-translate to ALL languages on send
+// Stored in Firebase so receiver reads their language directly
+const targets = LANGS.filter(l => l.code !== user.primaryLang);
+const pairs = await Promise.all(
+targets.map(async l => [l.code, await aiTranslate(transcript, user.primaryLang, l.code, tone)])
+);
+const translations: Record<string,string> = Object.fromEntries(pairs);
+translations[user.primaryLang] = transcript;
+
 await push(ref(db,`rooms/${roomId}/messages`),{
 text: transcript,
 type: "voice",
 lang: user.primaryLang,
 langs: user.langs,
 tone,
+translations,
 senderGender: user.gender || "male",
 senderName: user.name,
 senderFlag: myL.flag,
