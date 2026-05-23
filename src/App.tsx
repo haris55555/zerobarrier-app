@@ -386,15 +386,28 @@ const srcLang = getLang(msg.lang);
 
 // Auto-translate text as soon as message arrives — no tap needed
 useEffect(() => {
-if (isMe) return; // sender sees their own text
-const alreadyUnderstands = myLangs.includes(msg.lang);
-if (alreadyUnderstands) return; // no translation needed
-if (msg.lang === myLang) return; // same language
-// Translate text immediately in background
-aiTranslate(msg.text, msg.lang, myLang, msg.tone || "casual").then(t => {
-setTranslatedText(t);
+if (isMe) return;
+if (!msg.text) return;
+
+// Get the sender's language and receiver's language
+const senderLang = msg.lang || "en";
+const receiverLang = myLang;
+
+// Always translate if languages are different
+if (senderLang === receiverLang) {
+setTranslatedText(msg.text);
+return;
+}
+
+// Translate immediately
+aiTranslate(msg.text, senderLang, receiverLang, msg.tone || "casual")
+.then(translated => {
+setTranslatedText(translated);
+})
+.catch(() => {
+setTranslatedText(msg.text); // fallback to original
 });
-}, [msg.id]);
+}, [msg.id, myLang]);
 
 // Sender already has their own audio from original recording
 // Everyone else gets translate+audio on demand
@@ -425,20 +438,16 @@ return;
 
 setLoading(true);
 
-// Step 1: Translate to MY language (use cached translation if already done)
-const alreadyUnderstands = myLangs.includes(msg.lang);
-let textToSpeak = msg.text;
-if (!alreadyUnderstands && msg.lang !== myLang) {
-// Use already translated text if available — no double translation
-if (translatedText) {
-textToSpeak = translatedText;
-} else {
+// Always use translated text for audio — wait for it if needed
+let textToSpeak = translatedText || msg.text;
+
+// If translation not ready yet — translate now
+if (!translatedText && msg.lang !== myLang) {
 textToSpeak = await aiTranslate(msg.text, msg.lang, myLang, msg.tone || "casual");
 setTranslatedText(textToSpeak);
 }
-}
 
-// Step 2: Generate audio in MY language using SENDER's gender
+// Generate audio in receiver's language using sender's gender
 const senderGender = msg.senderGender || "male";
 const url = await textToSpeech(textToSpeak, myLang, senderGender);
 setLoading(false);
