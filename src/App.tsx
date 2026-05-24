@@ -105,31 +105,38 @@ resolve("browser-tts"); // special signal
 });
 }
 
-// ── Translation — MyMemory API (works from browser, no CORS issues) ──
-// Language codes for MyMemory
-const MYMEMORY_LANG: Record<string,string> = {
-en:"en-GB", hi:"hi-IN", ur:"ur-PK", de:"de-DE", fr:"fr-FR",
-es:"es-ES", ar:"ar-SA", zh:"zh-CN", ja:"ja-JP", pt:"pt-BR",
-ru:"ru-RU", ko:"ko-KR",
+// ── Translation — Google Translate (free, accurate, works from browser) ──
+const GOOGLE_LANG: Record<string,string> = {
+en:"en", hi:"hi", ur:"ur", de:"de", fr:"fr",
+es:"es", ar:"ar", zh:"zh-CN", ja:"ja", pt:"pt",
+ru:"ru", ko:"ko",
 };
 
 async function aiTranslate(text: string, from: string, to: string, tone = "casual"): Promise<string> {
 if (from === to || !text.trim()) return text;
 
-const fromCode = MYMEMORY_LANG[from] || "en-GB";
-const toCode = MYMEMORY_LANG[to] || "en-GB";
+const fromCode = GOOGLE_LANG[from] || "en";
+const toCode = GOOGLE_LANG[to] || "en";
 
 try {
-// MyMemory — free, no API key, works from browser
-const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromCode}|${toCode}`;
+// Google Translate free endpoint
+const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromCode}&tl=${toCode}&dt=t&q=${encodeURIComponent(text)}`;
 const res = await fetch(url);
 const data = await res.json();
-const translated = data?.responseData?.translatedText;
-if (translated && translated !== text) return translated;
+// Response format: [[[translated, original, ...]]]
+const translated = data?.[0]?.map((item: any) => item?.[0]).filter(Boolean).join("");
+if (translated) return translated;
 return text;
+} catch {
+// Fallback to MyMemory if Google fails
+try {
+const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromCode}|${toCode}`;
+const mmRes = await fetch(mmUrl);
+const mmData = await mmRes.json();
+return mmData?.responseData?.translatedText || text;
 } catch { return text; }
 }
-
+}
 // ── Languages ────────────────────────────────────────────────────────
 const LANGS = [
 { code:"en", label:"English", flag:"🇬🇧", native:"English", speechLang:"en-US" },
