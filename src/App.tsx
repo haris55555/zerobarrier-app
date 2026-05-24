@@ -105,28 +105,28 @@ resolve("browser-tts"); // special signal
 });
 }
 
-// ── Claude Translation ───────────────────────────────────────────────
+// ── Translation — MyMemory API (works from browser, no CORS issues) ──
+// Language codes for MyMemory
+const MYMEMORY_LANG: Record<string,string> = {
+en:"en-GB", hi:"hi-IN", ur:"ur-PK", de:"de-DE", fr:"fr-FR",
+es:"es-ES", ar:"ar-SA", zh:"zh-CN", ja:"ja-JP", pt:"pt-BR",
+ru:"ru-RU", ko:"ko-KR",
+};
+
 async function aiTranslate(text: string, from: string, to: string, tone = "casual"): Promise<string> {
 if (from === to || !text.trim()) return text;
-const toneInstr: Record<string,string> = {
-casual: "Use friendly, natural, conversational tone.",
-formal: "Use formal, respectful language.",
-business: "Use clear, professional language.",
-};
+
+const fromCode = MYMEMORY_LANG[from] || "en-GB";
+const toCode = MYMEMORY_LANG[to] || "en-GB";
+
 try {
-const res = await fetch("https://api.anthropic.com/v1/messages", {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({
-model: "claude-sonnet-4-20250514",
-max_tokens: 500,
-messages: [{ role: "user",
-content: `Translate from ${getLang(from).label} to ${getLang(to).label}. ${toneInstr[tone]||""} Return ONLY the translated text.\n\nText: ${text}`
-}]
-})
-});
-const d = await res.json();
-return d?.content?.[0]?.text?.trim() || text;
+// MyMemory — free, no API key, works from browser
+const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${fromCode}|${toCode}`;
+const res = await fetch(url);
+const data = await res.json();
+const translated = data?.responseData?.translatedText;
+if (translated && translated !== text) return translated;
+return text;
 } catch { return text; }
 }
 
