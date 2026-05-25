@@ -764,6 +764,9 @@ const [tone, setTone] = useState(user.tone);
 const [showTone, setShowTone] = useState(false);
 const [showVoice, setShowVoice] = useState(false);
 const [showLangPicker, setShowLangPicker] = useState(false);
+const [showNotifBanner, setShowNotifBanner] = useState(
+"Notification" in window && Notification.permission === "default"
+);
 const [onlineCount, setOnlineCount] = useState(1);
 const bottomRef = useRef<HTMLDivElement>(null);
 const userId = useRef(getUserId());
@@ -921,6 +924,21 @@ return (
 </div>
 
 {tab==="chat"&&<>
+{/* Notification permission banner */}
+{showNotifBanner&&(
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 14px",background:"rgba(255,178,0,0.08)",borderBottom:"1px solid rgba(255,178,0,0.15)"}}>
+<span style={{fontSize:11,color:"rgba(255,220,100,0.9)"}}>🔔 Get notified when someone messages you</span>
+<div style={{display:"flex",gap:8}}>
+<button style={{fontSize:11,color:"rgba(255,255,255,0.4)",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}} onClick={()=>setShowNotifBanner(false)}>Later</button>
+<button style={{fontSize:11,color:"#080612",background:"rgba(255,220,100,0.9)",border:"none",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontFamily:"inherit",fontWeight:700}}
+onClick={async()=>{
+const granted = await requestNotificationPermission(userId.current, user.name);
+setShowNotifBanner(false);
+if (granted) alert("✅ Notifications enabled!");
+}}>Enable</button>
+</div>
+</div>
+)}
 <div style={cs.notice}>
 <span>⚡</span>
 <span>You speak <strong style={{color:GREEN}}>{user.langs.map((c:string)=>getLang(c).label).join(", ")}</strong>. Voice notes play in your language automatically! 🎙️</span>
