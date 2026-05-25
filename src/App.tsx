@@ -863,15 +863,32 @@ return (
 <span>You speak <strong style={{color:GREEN}}>{user.langs.map((c:string)=>getLang(c).label).join(", ")}</strong>. Voice notes play in your language automatically! 🎙️</span>
 </div>
 
+{/* Language hint bar */}
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 14px",background:"rgba(0,255,178,0.03)",borderBottom:`1px solid rgba(0,255,178,0.08)`}}>
+<span style={{fontSize:11,color:SUB}}>{myL.flag} Your language: <strong style={{color:"#fff"}}>{myL.label}</strong></span>
+<button style={{fontSize:11,color:GREEN,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}} onClick={()=>setTab("profile")}>
+Change language →
+</button>
+</div>
+
 <div style={cs.msgs}>
 {messages.length===0&&(
-<div style={{textAlign:"center",padding:"60px 20px",color:SUB}}>
-<div style={{fontSize:48,marginBottom:16}}>🎙️</div>
-<div style={{fontWeight:700,color:"#fff",fontSize:18,marginBottom:8}}>Voice-to-Voice Translation</div>
-<div style={{fontSize:13,lineHeight:1.7}}>
-Tap the mic 🎙️ and speak.<br/>
-Everyone receives your message<br/>
-as a voice note in their own language!
+<div style={{padding:"16px 4px"}}>
+{/* Welcome card */}
+<div style={{background:"rgba(0,255,178,0.05)",border:"1px solid rgba(0,255,178,0.15)",borderRadius:16,padding:"16px 14px",marginBottom:12}}>
+<div style={{color:GREEN,fontWeight:700,fontSize:14,marginBottom:6}}>👋 Welcome to ZeroBarrier!</div>
+<div style={{color:SUB,fontSize:12,lineHeight:1.65,marginBottom:10}}>Everyone speaks their own language here. Messages translate automatically!</div>
+<div style={{display:"flex",flexDirection:"column",gap:6}}>
+{[
+["🎙️","Tap the mic to send a voice note in your language"],
+["🔊","Tap ▶ on any message to hear it in your language"],
+["👤","Go to Profile tab to change your language anytime"],
+].map(([icon,text])=>(
+<div key={icon} style={{display:"flex",gap:8,fontSize:12,color:"rgba(255,255,255,0.5)"}}>
+<span>{icon}</span><span>{text}</span>
+</div>
+))}
+</div>
 </div>
 </div>
 )}
