@@ -151,6 +151,14 @@ const LANGS = [
 { code:"pt", label:"Portuguese", flag:"🇧🇷", native:"Português", speechLang:"pt-BR" },
 { code:"ru", label:"Russian", flag:"🇷🇺", native:"Русский", speechLang:"ru-RU" },
 { code:"ko", label:"Korean", flag:"🇰🇷", native:"한국어", speechLang:"ko-KR" },
+{ code:"it", label:"Italian", flag:"🇮🇹", native:"Italiano", speechLang:"it-IT" },
+{ code:"tr", label:"Turkish", flag:"🇹🇷", native:"Türkçe", speechLang:"tr-TR" },
+{ code:"bn", label:"Bengali", flag:"🇧🇩", native:"বাংলা", speechLang:"bn-BD" },
+{ code:"id", label:"Indonesian", flag:"🇮🇩", native:"Bahasa", speechLang:"id-ID" },
+{ code:"nl", label:"Dutch", flag:"🇳🇱", native:"Nederlands", speechLang:"nl-NL" },
+{ code:"pl", label:"Polish", flag:"🇵🇱", native:"Polski", speechLang:"pl-PL" },
+{ code:"th", label:"Thai", flag:"🇹🇭", native:"ภาษาไทย", speechLang:"th-TH" },
+{ code:"vi", label:"Vietnamese", flag:"🇻🇳", native:"Tiếng Việt", speechLang:"vi-VN" },
 ];
 const getLang = (c: string) => LANGS.find(l => l.code === c) || LANGS[0];
 
