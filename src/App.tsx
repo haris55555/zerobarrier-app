@@ -717,6 +717,7 @@ const [tab, setTab] = useState("chat");
 const [tone, setTone] = useState(user.tone);
 const [showTone, setShowTone] = useState(false);
 const [showVoice, setShowVoice] = useState(false);
+const [showLangPicker, setShowLangPicker] = useState(false);
 const [onlineCount, setOnlineCount] = useState(1);
 const bottomRef = useRef<HTMLDivElement>(null);
 const userId = useRef(getUserId());
@@ -866,13 +867,34 @@ return (
 {/* Language hint bar */}
 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 14px",background:"rgba(0,255,178,0.03)",borderBottom:`1px solid rgba(0,255,178,0.08)`}}>
 <span style={{fontSize:11,color:SUB}}>{myL.flag} Your language: <strong style={{color:"#fff"}}>{myL.label}</strong></span>
-<button style={{fontSize:11,color:GREEN,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}} onClick={()=>setTab("profile")}>
+<button style={{fontSize:11,color:GREEN,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}} onClick={()=>setShowLangPicker(p=>!p)}>
 Change language →
 </button>
 </div>
 
+{/* Language picker popup */}
+{showLangPicker&&(
+<div style={{background:"rgba(12,10,28,0.98)",backdropFilter:"blur(20px)",border:`1px solid ${BORDER}`,borderRadius:16,padding:"16px 14px",margin:"0 12px",position:"relative",zIndex:10}}>
+<div style={{color:SUB,fontSize:11,marginBottom:10,letterSpacing:1}}>SELECT YOUR PRIMARY LANGUAGE</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+{LANGS.map(l=>(
+<button key={l.code} style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"10px 4px",borderRadius:12,background:user.primaryLang===l.code?"rgba(0,255,178,0.12)":"rgba(255,255,255,0.04)",border:`1.5px solid ${user.primaryLang===l.code?GREEN:BORDER}`,cursor:"pointer",transition:"all 0.15s"}}
+onClick={()=>{
+const updated = {...user, primaryLang: l.code, langs: user.langs.includes(l.code) ? user.langs : [l.code, ...user.langs.slice(0,2)]};
+saveProfile(updated);
+window.location.reload();
+}}>
+<span style={{fontSize:20}}>{l.flag}</span>
+<span style={{fontSize:10,marginTop:3,color:user.primaryLang===l.code?GREEN:SUB}}>{l.label}</span>
+</button>
+))}
+</div>
+<button style={{marginTop:12,background:"none",border:"none",color:SUB,fontSize:12,cursor:"pointer",fontFamily:"inherit"}} onClick={()=>setShowLangPicker(false)}>Cancel</button>
+</div>
+)}
+
 <div style={cs.msgs}>
-{messages.length===0&&(
+{messages.length===0&&!showLangPicker&&(
 <div style={{padding:"16px 4px"}}>
 {/* Welcome card */}
 <div style={{background:"rgba(0,255,178,0.05)",border:"1px solid rgba(0,255,178,0.15)",borderRadius:16,padding:"16px 14px",marginBottom:12}}>
