@@ -11,6 +11,18 @@
 <title>ZeroBarrier</title>
 <meta name="description" content="Voice-to-voice translation across any language" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<!-- OneSignal -->
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+OneSignalDeferred.push(async function(OneSignal) {
+await OneSignal.init({
+appId: "d7da8125-4084-4463-bca4-68dfd3581c4b",
+notifyButton: { enable: false },
+allowLocalhostAsSecureOrigin: true,
+});
+});
+</script>
 </head>
 <body>
 <div id="root"></div>
