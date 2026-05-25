@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect, Component } from "react";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, push, onValue, set, remove } from "firebase/database";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
+
+// ── VAPID Key for Web Push ────────────────────────────────────────────
+const VAPID_KEY = "BOZ1rSZHNx892oXBXrCK9N1v8HE22kftTbDNdH5QVE9Mb5qGQPTHCd0w_7e33qiX5uKMhrWwp-W2srhEnLAzWaA";
 
 // ── Error Boundary — prevents blank screen on any crash ───────────────
 class ErrorBoundary extends Component<{children: any}, {hasError: boolean, error: string}> {
@@ -40,6 +44,40 @@ appId: "1:10426675429406:web:1aa91184280722369ebe0f",
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+
+// ── Push Notifications Setup ──────────────────────────────────────────
+let messaging: any = null;
+try {
+messaging = getMessaging(app);
+} catch {}
+
+async function requestNotificationPermission(userId: string, userName: string): Promise<boolean> {
+try {
+if (!messaging) return false;
+if (!("Notification" in window)) return false;
+
+const permission = await Notification.requestPermission();
+if (permission !== "granted") return false;
+
+const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+if (token) {
+// Save token to Firebase so other users can send notifications to this user
+await set(ref(db, `tokens/${userId}`), { token, name: userName, ts: Date.now() });
+return true;
+}
+return false;
+} catch { return false; }
+}
+
+function showLocalNotification(title: string, body: string) {
+if ("Notification" in window && Notification.permission === "granted") {
+new Notification(title, {
+body,
+icon: "/favicon.svg",
+badge: "/favicon.svg",
+});
+}
+}
 
 // ── ElevenLabs TTS ───────────────────────────────────────────────────
 const ELEVEN_API_KEY = "5bffab41a92aa474730a40d3145fcb803d4cae431c4e3273cd4407f6f5d00186";
@@ -733,15 +771,31 @@ const myL = getLang(user.primaryLang);
 
 useEffect(() => {
 const msgsRef = ref(db, `rooms/${roomId}/messages`);
+let isFirst = true;
 const unsub = onValue(msgsRef, snap => {
 const data = snap.val();
-if (!data) return;
+if (!data) { isFirst = false; return; }
 const msgs = Object.entries(data)
 .map(([id,m]:any) => ({id,...m}))
 .sort((a:any,b:any)=>(a.timestamp||0)-(b.timestamp||0))
 .slice(-100);
+// Show notification for new messages when app is in background
+if (!isFirst && msgs.length > 0) {
+const latest = msgs[msgs.length - 1];
+if (latest.senderId !== userId.current && document.hidden) {
+showLocalNotification(
+`ZeroBarrier ⚡`,
+`${latest.senderName} sent a ${latest.type === "voice" ? "voice note 🎙️" : "message 💬"}`
+);
+}
+}
+isFirst = false;
 setMessages(msgs);
 });
+
+// Request notification permission
+requestNotificationPermission(userId.current, user.name);
+
 const onlineRef = ref(db, "presence");
 const onlineUnsub = onValue(onlineRef, snap => {
 const data = snap.val() || {};
