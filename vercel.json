@@ -8,7 +8,15 @@
     "value": "no-cache, no-store, must-revalidate"
     }
     ]
+    },
+    {
+    "source": "/OneSignalSDKWorker.js",
+    "headers": [
+    {
+    "key": "Service-Worker-Allowed",
+    "value": "/"
     }
     ]
     }
-    
+    ]
+    }
