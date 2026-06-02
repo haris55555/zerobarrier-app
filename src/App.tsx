@@ -276,84 +276,87 @@ return "";
 }
 }
 
-// ── VOICE RECORDER — MediaRecorder + ElevenLabs Scribe ───────────────
+// ── Voice Recording with Web Speech API (free, works on all browsers) ─
 function VoiceRecorder({ lang, langs, tone, onSend, onCancel }: {
 lang: string; langs: string[]; tone: string;
 onSend: (text: string) => void;
 onCancel: () => void;
 }) {
-const [phase, setPhase] = useState<"idle"|"recording"|"processing"|"done">("idle");
+const [phase, setPhase] = useState<"idle"|"recording"|"processing"|"done"|"error">("idle");
 const [secs, setSecs] = useState(0);
 const [transcript, setTranscript] = useState("");
 const [statusMsg, setStatusMsg] = useState("");
 const [permError, setPermError] = useState(false);
 const timerRef = useRef<ReturnType<typeof setInterval>|null>(null);
-const recorderRef = useRef<MediaRecorder|null>(null);
-const chunksRef = useRef<Blob[]>([]);
+const recognRef = useRef<any>(null);
+const finalTextRef = useRef("");
 const langData = getLang(lang);
 const fmt = (s: number) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 
-async function startRecording() {
+function startRecording() {
 setPermError(false);
-try {
-const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-chunksRef.current = [];
-const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
-const recorder = new MediaRecorder(stream, { mimeType });
-recorderRef.current = recorder;
-recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-recorder.onstop = async () => {
-stream.getTracks().forEach(t => t.stop());
-const blob = new Blob(chunksRef.current, { type: mimeType });
-await processAudio(blob);
-};
-recorder.start(100);
-setPhase("recording");
-setSecs(0);
-timerRef.current = setInterval(() => setSecs(s => s+1), 1000);
-} catch (err: any) {
-if (err?.name === "NotAllowedError") {
+finalTextRef.current = "";
+
+const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+if (!SR) {
 setPermError(true);
+return;
+}
+
+try {
+const recognition = new SR();
+recognition.lang = langData.speechLang;
+recognition.continuous = true;
+recognition.interimResults = false;
+recognRef.current = recognition;
+
+recognition.onresult = (e: any) => {
+for (let i = e.resultIndex; i < e.results.length; i++) {
+if (e.results[i].isFinal) {
+finalTextRef.current += e.results[i][0].transcript + " ";
+}
+}
+};
+
+recognition.onerror = (e: any) => {
+console.error("Speech recognition error:", e.error);
+clearInterval(timerRef.current!);
+if (e.error === "not-allowed") {
+setPermError(true);
+setPhase("idle");
 } else {
-// Fallback — demo mode
+finalize();
+}
+};
+
+recognition.onend = () => {
+clearInterval(timerRef.current!);
+finalize();
+};
+
+recognition.start();
 setPhase("recording");
 setSecs(0);
-timerRef.current = setInterval(() => setSecs(s => s+1), 1000);
-}
+timerRef.current = setInterval(() => setSecs(s => s + 1), 1000);
+} catch (e) {
+setPermError(true);
 }
 }
 
 function stopRecording() {
 clearInterval(timerRef.current!);
-if (recorderRef.current && recorderRef.current.state === "recording") {
-recorderRef.current.stop();
-} else {
-processAudio(null);
+if (recognRef.current) {
+try { recognRef.current.stop(); } catch {}
 }
 }
 
-async function processAudio(blob: Blob | null) {
-setPhase("processing");
-setStatusMsg("Transcribing your voice…");
-
-let text = "";
-if (blob && blob.size > 100) {
-console.log("Audio blob size:", blob.size, "type:", blob.type);
-text = await transcribeWithElevenLabs(blob, lang);
-console.log("Transcription result:", text);
-} else {
-console.log("Blob too small or null:", blob?.size);
-}
-
-// If transcription failed — show error
+function finalize() {
+const text = finalTextRef.current.trim();
 if (!text) {
-setStatusMsg("");
-setPhase("error" as any);
+setPhase("error");
 return;
 }
-
 setTranscript(text);
-setStatusMsg("");
 setPhase("done");
 }
 
@@ -378,9 +381,9 @@ return (
 {permError ? (
 <div style={{textAlign:"center",padding:"8px 0"}}>
 <div style={{fontSize:32,marginBottom:8}}>🚫</div>
-<div style={{color:"#FF6B6B",fontWeight:700,marginBottom:6}}>Microphone access denied</div>
-<div style={{color:SUB,fontSize:12,marginBottom:12}}>Please allow microphone permission in your browser settings</div>
-<button style={vrs.micBtn} onClick={startRecording}>Try Again</button>
+<div style={{color:"#FF6B6B",fontWeight:700,marginBottom:6}}>Microphone not available</div>
+<div style={{color:SUB,fontSize:12,marginBottom:12,lineHeight:1.6}}>Please allow microphone access in your browser settings and try again</div>
+<button style={vrs.cancelBtn} onClick={onCancel}>Cancel</button>
 </div>
 ) : <>
 <div style={vrs.hint}>Tap mic · speak in {langData.label} · tap stop</div>
@@ -400,18 +403,33 @@ return (
 <div style={vrs.hint}>Speaking… tap to stop</div>
 </>}
 
-{phase==="processing"&&<div style={{textAlign:"center",padding:"8px 0",width:"100%"}}>
-<div style={vrs.spinner}/>
-<div style={{color:GREEN,fontWeight:700,marginBottom:6}}>Processing voice…</div>
-<div style={{color:SUB,fontSize:12}}>{statusMsg}</div>
-</div>}
-
-{(phase as string)==="error"&&<div style={{textAlign:"center",padding:"8px 0",width:"100%"}}>
+{phase==="error"&&<div style={{textAlign:"center",padding:"8px 0",width:"100%"}}>
 <div style={{fontSize:36,marginBottom:8}}>🎙️</div>
 <div style={{color:"#FF6B6B",fontWeight:700,marginBottom:6}}>Couldn't hear clearly</div>
 <div style={{color:SUB,fontSize:12,marginBottom:16,lineHeight:1.6}}>Please try again — speak clearly and keep it under 30 seconds</div>
 <button style={{...vrs.micBtn,width:60,height:60,fontSize:24}} onClick={()=>setPhase("idle")}>↩</button>
 </div>}
+
+{phase==="done"&&<div style={{width:"100%"}}>
+<div style={vrs.txBox}>
+<div style={{color:GREEN,fontSize:9,letterSpacing:2,fontWeight:700,marginBottom:8}}>
+🎙️ RECORDED IN {langData.flag} {langData.label.toUpperCase()}
+</div>
+<div style={{fontSize:13,lineHeight:1.6,marginBottom:8}}>{transcript}</div>
+<div style={{color:SUB,fontSize:11}}>
+✅ Ready to send · Recipients tap ▶ to hear in their language
+</div>
+</div>
+<div style={{display:"flex",gap:8,marginTop:12}}>
+<button style={vrs.sendBtn} onClick={()=>onSend(transcript)}>
+⚡ Send Voice Note
+</button>
+<button style={vrs.retryBtn} onClick={()=>setPhase("idle")}>↩</button>
+</div>
+</div>}
+</div>
+);
+}
 
 {phase==="done"&&<div style={{width:"100%"}}>
 <div style={vrs.txBox}>
@@ -1168,6 +1186,7 @@ localStorage.setItem("zb_room", urlRoom);
 }
 const savedRoom = localStorage.getItem("zb_room");
 const roomId = urlRoom || savedRoom || "global";
+
 return (
 <ErrorBoundary>
 {!user
