@@ -123,23 +123,52 @@ if (blob.size > 100) return URL.createObjectURL(blob);
 // Fallback — browser built-in TTS (free, works everywhere)
 return new Promise((resolve) => {
 if (!window.speechSynthesis) { resolve(null); return; }
+
 const utterance = new SpeechSynthesisUtterance(text);
 utterance.lang = BROWSER_TTS_LANG[langCode] || "en-US";
-utterance.rate = 0.95;
-utterance.pitch = gender === "female" ? 1.2 : 0.85;
+utterance.rate = 0.9;
+utterance.pitch = gender === "female" ? 1.2 : 0.7;
+utterance.volume = 1;
 
-// Try to find a matching voice
+const setVoiceAndSpeak = () => {
 const voices = window.speechSynthesis.getVoices();
-const match = voices.find(v =>
-v.lang.startsWith(BROWSER_TTS_LANG[langCode]?.slice(0,2) || "en") &&
-(gender === "female" ? v.name.toLowerCase().includes("female") || !v.name.toLowerCase().includes("male") : true)
-);
-if (match) utterance.voice = match;
+const langPrefix = (BROWSER_TTS_LANG[langCode] || "en").slice(0, 2);
 
-// Use browser TTS directly — return null so caller uses speechSynthesis
+// Filter voices matching the language
+const langVoices = voices.filter(v => v.lang.startsWith(langPrefix));
+
+let selectedVoice = null;
+if (gender === "female") {
+selectedVoice = langVoices.find(v =>
+v.name.toLowerCase().includes("female") ||
+v.name.toLowerCase().includes("woman") ||
+v.name.toLowerCase().includes("zira") ||
+v.name.toLowerCase().includes("samantha") ||
+v.name.toLowerCase().includes("victoria")
+) || langVoices[0];
+} else {
+selectedVoice = langVoices.find(v =>
+v.name.toLowerCase().includes("male") ||
+v.name.toLowerCase().includes("man") ||
+v.name.toLowerCase().includes("david") ||
+v.name.toLowerCase().includes("mark") ||
+v.name.toLowerCase().includes("daniel") ||
+v.name.toLowerCase().includes("alex")
+) || langVoices[langVoices.length - 1] || langVoices[0];
+}
+
+if (selectedVoice) utterance.voice = selectedVoice;
 window.speechSynthesis.cancel();
 window.speechSynthesis.speak(utterance);
-resolve("browser-tts"); // special signal
+resolve("browser-tts");
+};
+
+// Voices may not be loaded yet
+if (window.speechSynthesis.getVoices().length > 0) {
+setVoiceAndSpeak();
+} else {
+window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
+}
 });
 }
 
