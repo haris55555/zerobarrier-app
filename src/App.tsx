@@ -336,7 +336,7 @@ finalize();
 recognition.start();
 setPhase("recording");
 setSecs(0);
-timerRef.current = setInterval(() => setSecs(s => s + 1), 1000);
+timerRef.current = setInterval(() => setSecs((s: number) => s + 1), 1000);
 } catch (e) {
 setPermError(true);
 }
@@ -408,27 +408,6 @@ return (
 <div style={{color:SUB,fontSize:12,marginBottom:16,lineHeight:1.6}}>Please try again — speak clearly and keep it under 30 seconds</div>
 <button style={{...vrs.micBtn,width:60,height:60,fontSize:24}} onClick={()=>setPhase("idle")}>↩</button>
 </div>}
-
-{phase==="done"&&<div style={{width:"100%"}}>
-<div style={vrs.txBox}>
-<div style={{color:GREEN,fontSize:9,letterSpacing:2,fontWeight:700,marginBottom:8}}>
-🎙️ RECORDED IN {langData.flag} {langData.label.toUpperCase()}
-</div>
-<div style={{fontSize:13,lineHeight:1.6,marginBottom:8}}>{transcript}</div>
-<div style={{color:SUB,fontSize:11}}>
-✅ Ready to send · Recipients tap ▶ to hear in their language
-</div>
-</div>
-<div style={{display:"flex",gap:8,marginTop:12}}>
-<button style={vrs.sendBtn} onClick={()=>onSend(transcript)}>
-⚡ Send Voice Note
-</button>
-<button style={vrs.retryBtn} onClick={()=>setPhase("idle")}>↩</button>
-</div>
-</div>}
-</div>
-);
-}
 
 {phase==="done"&&<div style={{width:"100%"}}>
 <div style={vrs.txBox}>
