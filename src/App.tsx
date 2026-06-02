@@ -282,10 +282,9 @@ lang: string; langs: string[]; tone: string;
 onSend: (text: string) => void;
 onCancel: () => void;
 }) {
-const [phase, setPhase] = useState<"idle"|"recording"|"processing"|"done"|"error">("idle");
+const [phase, setPhase] = useState<"idle"|"recording"|"done"|"error">("idle");
 const [secs, setSecs] = useState(0);
 const [transcript, setTranscript] = useState("");
-const [statusMsg, setStatusMsg] = useState("");
 const [permError, setPermError] = useState(false);
 const timerRef = useRef<ReturnType<typeof setInterval>|null>(null);
 const recognRef = useRef<any>(null);
