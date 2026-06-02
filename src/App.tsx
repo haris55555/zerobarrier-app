@@ -254,18 +254,26 @@ button:active{transform:scale(0.97);}
 // ── ElevenLabs Speech-to-Text (Scribe) ───────────────────────────────
 async function transcribeWithElevenLabs(audioBlob: Blob, langCode: string): Promise<string> {
 try {
+// Try with proper filename based on mime type
+const ext = audioBlob.type.includes("mp4") ? "recording.mp4" : "recording.webm";
 const formData = new FormData();
-formData.append("file", audioBlob, "recording.webm");
+formData.append("file", audioBlob, ext);
 formData.append("model_id", "scribe_v1");
 const res = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
 method: "POST",
 headers: { "xi-api-key": ELEVEN_API_KEY },
 body: formData,
 });
-if (!res.ok) return "";
+if (!res.ok) {
+console.error("ElevenLabs error:", res.status, await res.text());
+return "";
+}
 const data = await res.json();
 return data?.text?.trim() || "";
-} catch { return ""; }
+} catch (e) {
+console.error("Transcription error:", e);
+return "";
+}
 }
 
 // ── VOICE RECORDER — MediaRecorder + ElevenLabs Scribe ───────────────
@@ -329,11 +337,15 @@ setPhase("processing");
 setStatusMsg("Transcribing your voice…");
 
 let text = "";
-if (blob && blob.size > 500) {
+if (blob && blob.size > 100) {
+console.log("Audio blob size:", blob.size, "type:", blob.type);
 text = await transcribeWithElevenLabs(blob, lang);
+console.log("Transcription result:", text);
+} else {
+console.log("Blob too small or null:", blob?.size);
 }
 
-// If transcription failed — show error, don't use fake demo text
+// If transcription failed — show error
 if (!text) {
 setStatusMsg("");
 setPhase("error" as any);
@@ -1156,7 +1168,6 @@ localStorage.setItem("zb_room", urlRoom);
 }
 const savedRoom = localStorage.getItem("zb_room");
 const roomId = urlRoom || savedRoom || "global";
-
 return (
 <ErrorBoundary>
 {!user
