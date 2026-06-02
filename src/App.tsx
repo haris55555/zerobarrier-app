@@ -321,9 +321,12 @@ const finalTextRef = useRef("");
 const langData = getLang(lang);
 const fmt = (s: number) => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 
+const isStoppingRef = useRef(false);
+
 function startRecording() {
 setPermError(false);
 finalTextRef.current = "";
+isStoppingRef.current = false;
 
 const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 if (!SR) {
@@ -348,16 +351,20 @@ finalTextRef.current += e.results[i][0].transcript + " ";
 
 recognition.onerror = (e: any) => {
 console.error("Speech recognition error:", e.error);
-clearInterval(timerRef.current!);
 if (e.error === "not-allowed") {
+clearInterval(timerRef.current!);
 setPermError(true);
 setPhase("idle");
-} else {
-finalize();
 }
+// Other errors — ignore and let onend handle
 };
 
 recognition.onend = () => {
+// If user didn't manually stop — restart to keep recording
+if (!isStoppingRef.current) {
+try { recognition.start(); } catch {}
+return;
+}
 clearInterval(timerRef.current!);
 finalize();
 };
@@ -372,10 +379,16 @@ setPermError(true);
 }
 
 function stopRecording() {
+isStoppingRef.current = true;
 clearInterval(timerRef.current!);
 if (recognRef.current) {
 try { recognRef.current.stop(); } catch {}
 }
+// Fallback — finalize after short delay if onend doesn't fire
+setTimeout(() => {
+if (finalTextRef.current.trim()) finalize();
+else setPhase("error");
+}, 500);
 }
 
 function finalize() {
