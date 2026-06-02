@@ -333,21 +333,13 @@ if (blob && blob.size > 500) {
 text = await transcribeWithElevenLabs(blob, lang);
 }
 
+// If transcription failed — show error, don't use fake demo text
 if (!text) {
-const DEMO: Record<string,string> = {
-en: "Hello! I wanted to share something with you today.",
-hi: "नमस्ते! मैं आज आपसे कुछ साझा करना चाहता था।",
-ur: "ہیلو! میں آج آپ سے کچھ شیئر کرنا چاہتا تھا۔",
-de: "Hallo! Ich wollte heute etwas mit Ihnen teilen.",
-ar: "مرحباً! أردت أن أشارككم شيئاً اليوم.",
-fr: "Bonjour! Je voulais partager quelque chose avec vous.",
-es: "¡Hola! Quería compartir algo contigo hoy.",
-};
-text = DEMO[lang] || DEMO.en;
+setStatusMsg("");
+setPhase("error" as any);
+return;
 }
 
-// Just transcribe — NO translation here
-// Translation happens lazily per receiver in VoiceBubble
 setTranscript(text);
 setStatusMsg("");
 setPhase("done");
@@ -400,11 +392,13 @@ return (
 <div style={vrs.spinner}/>
 <div style={{color:GREEN,fontWeight:700,marginBottom:6}}>Processing voice…</div>
 <div style={{color:SUB,fontSize:12}}>{statusMsg}</div>
-<div style={{display:"flex",gap:8,justifyContent:"center",marginTop:12,flexWrap:"wrap"}}>
-{LANGS.slice(0,6).map(l=>(
-<div key={l.code} style={{fontSize:18,animation:"db 1s infinite",animationDelay:`${Math.random()*0.5}s`}}>{l.flag}</div>
-))}
-</div>
+</div>}
+
+{(phase as string)==="error"&&<div style={{textAlign:"center",padding:"8px 0",width:"100%"}}>
+<div style={{fontSize:36,marginBottom:8}}>🎙️</div>
+<div style={{color:"#FF6B6B",fontWeight:700,marginBottom:6}}>Couldn't hear clearly</div>
+<div style={{color:SUB,fontSize:12,marginBottom:16,lineHeight:1.6}}>Please try again — speak clearly and keep it under 30 seconds</div>
+<button style={{...vrs.micBtn,width:60,height:60,fontSize:24}} onClick={()=>setPhase("idle")}>↩</button>
 </div>}
 
 {phase==="done"&&<div style={{width:"100%"}}>
@@ -821,11 +815,30 @@ set(myPresenceRef, {name:user.name, lang:user.primaryLang, ts:Date.now(), online
 const handleUnload = () => remove(myPresenceRef);
 window.addEventListener("beforeunload", handleUnload);
 
+// Fix real-time messages — resubscribe when app comes back to foreground
+const handleVisibilityChange = () => {
+if (!document.hidden) {
+// App came back to foreground — force refresh messages
+const msgsRef2 = ref(db, `rooms/${roomId}/messages`);
+onValue(msgsRef2, snap => {
+const data = snap.val();
+if (!data) return;
+const msgs = Object.entries(data)
+.map(([id,m]:any) => ({id,...m}))
+.sort((a:any,b:any)=>(a.timestamp||0)-(b.timestamp||0))
+.slice(-100);
+setMessages(msgs);
+}, { onlyOnce: true });
+}
+};
+document.addEventListener("visibilitychange", handleVisibilityChange);
+
 return () => {
 unsub();
 onlineUnsub();
 clearInterval(heartbeat);
 window.removeEventListener("beforeunload", handleUnload);
+document.removeEventListener("visibilitychange", handleVisibilityChange);
 remove(myPresenceRef);
 };
 }, []);
@@ -1136,8 +1149,13 @@ Copy
 export default function ZeroBarrier() {
 const [user, setUser] = useState<any>(null);
 
-// Get room from URL — if ?room=xxx use that room, else use "global"
-const roomId = new URLSearchParams(window.location.search).get("room") || "global";
+// Get room from URL — save to localStorage so PWA home screen remembers it
+const urlRoom = new URLSearchParams(window.location.search).get("room");
+if (urlRoom && urlRoom !== "global") {
+localStorage.setItem("zb_room", urlRoom);
+}
+const savedRoom = localStorage.getItem("zb_room");
+const roomId = urlRoom || savedRoom || "global";
 
 return (
 <ErrorBoundary>
