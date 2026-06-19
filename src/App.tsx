@@ -910,6 +910,12 @@ time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
 timestamp:Date.now(),
 });
 setBusy(false);
+// Trigger push notification — does not affect chat/translation logic
+fetch("/api/send-notification", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ senderName: user.name, message: text, senderId: userId.current }),
+    }).catch(() => {});
 }
 
 async function sendVoice(transcript: string) {
@@ -940,6 +946,13 @@ time: new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
 timestamp: Date.now(),
 });
 setBusy(false);
+// Trigger push notification — does not affect chat/translation logic
+fetch("/api/send-notification", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ senderName: user.name, message: transcript, senderId: userId.current }),
+    }).catch(() => {});
+    
 }
 
 const cs = {
