@@ -914,7 +914,7 @@ setBusy(false);
 fetch("/api/send-notification", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ senderName: user.name, message: text, senderId: userId.current }),
+    body: JSON.stringify({ senderName: user.name, message: text, senderId: userId.current,roomId }),
     }).catch(() => {});
 }
 
@@ -950,7 +950,7 @@ setBusy(false);
 fetch("/api/send-notification", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ senderName: user.name, message: transcript, senderId: userId.current }),
+    body: JSON.stringify({ senderName: user.name, message: transcript, senderId: userId.current,roomId }),
     }).catch(() => {});
     
 }

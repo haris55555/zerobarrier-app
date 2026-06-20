@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     }
     
     try {
-    const { senderName, message, senderId } = req.body;
+    const { senderName, message, senderId,roomId } = req.body;
     
     if (!senderName || !message) {
     return res.status(400).json({ error: "Missing senderName or message" });
@@ -43,6 +43,8 @@ export default async function handler(req, res) {
     included_segments: ["Subscribed Users"],
     headings: { en: "ZeroBarrier ⚡" },
     contents: { en: `${senderName}: ${preview}` },
+    url: roomId ? `https://zerobarrier-app.vercel.app?room=${roomId}` : "https://zerobarrier-app.vercel.app",
+
     // Excludes the sender's own device from receiving their own notification
     ...(senderId ? { filters: [{ field: "tag", key: "uid", relation: "!=", value: senderId }] } : {}),
     }),
@@ -59,5 +61,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message || "Unknown server error" });
     }
     }
+
     
     
