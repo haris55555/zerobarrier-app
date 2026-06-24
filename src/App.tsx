@@ -599,11 +599,11 @@ return (
 }
 
 // ── MESSAGE BUBBLE ────────────────────────────────────────────────────
-function Bubble({ msg, myLangs, myPrimary, isMe }: { msg: any; myLangs: string[]; myPrimary: string; isMe: boolean }) {
+function Bubble({ msg, myLangs, myPrimary, isMe, roomId }: { msg: any; myLangs: string[]; myPrimary: string; isMe: boolean }) {
 const [showOrig, setShowOrig] = useState(false);
 const [translated, setTranslated] = useState<string|null>(null);
 const [translating, setTranslating] = useState(false);
-
+const [confirmDelete, setConfirmDelete] = useState(false);
 useEffect(() => {
 if (myLangs.includes(msg.lang)) return;
 if (msg.translations?.[myPrimary]) { setTranslated(msg.translations[myPrimary]); return; }
@@ -633,8 +633,23 @@ return (
 {alreadyUnderstands&&<span style={{background:"rgba(78,205,196,0.12)",color:"#4ECDC4",padding:"1px 7px",borderRadius:6,fontSize:9}}>✓ {srcLang.label}</span>}
 {!alreadyUnderstands&&wasTranslated&&<span style={{background:"rgba(0,255,178,0.1)",color:GREEN,padding:"1px 7px",borderRadius:6,fontSize:9}}>⚡ translated</span>}
 {translating&&<span style={{color:SUB,fontSize:9}}>translating…</span>}
+{isMe && (
+<button onClick={()=>setConfirmDelete(true)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,100,100,0.6)",fontSize:12,padding:"0 2px",marginLeft:"auto"}}>🗑️</button>
+)}
 </div>
-
+{confirmDelete && (
+<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}}>
+<div style={{background:"#1a1a2e",border:"1px solid rgba(255,255,255,0.15)",borderRadius:16,padding:"24px 20px",width:280,textAlign:"center"}}>
+<div style={{fontSize:20,marginBottom:8}}>🗑️</div>
+<div style={{color:"#fff",fontWeight:700,fontSize:16,marginBottom:6}}>Delete message?</div>
+<div style={{color:"rgba(255,255,255,0.5)",fontSize:13,marginBottom:20}}>This will delete for everyone in the room.</div>
+<div style={{display:"flex",gap:10}}>
+<button onClick={()=>setConfirmDelete(false)} style={{flex:1,padding:"11px",borderRadius:10,background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"#fff",fontSize:14,cursor:"pointer"}}>Cancel</button>
+<button onClick={async()=>{await remove(ref(db,`rooms/${roomId}/messages/${msg.id}`));setConfirmDelete(false);}} style={{flex:1,padding:"11px",borderRadius:10,background:"rgba(255,80,80,0.8)",border:"none",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>Delete</button>
+</div>
+</div>
+</div>
+)}
 {msg.type==="voice" ? (
 <VoiceBubble msg={msg} myLang={myPrimary} myLangs={myLangs} isMe={isMe}/>
 ) : (
@@ -1071,7 +1086,7 @@ window.location.reload();
 </div>
 )}
 {messages.map(m=>(
-<Bubble key={m.id} msg={m} myLangs={user.langs} myPrimary={user.primaryLang} isMe={m.senderId===userId.current}/>
+<Bubble key={m.id} msg={m} myLangs={user.langs} myPrimary={user.primaryLang} isMe={m.senderId===userId.current} roomId={roomId}/>
 ))}
 <div ref={bottomRef}/>
 </div>
