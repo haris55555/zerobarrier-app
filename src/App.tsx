@@ -956,7 +956,7 @@ const translations: Record<string,string> = Object.fromEntries(pairs);
 user.langs.forEach((c:string)=>{ translations[c]=text; });
 await push(ref(db,`rooms/${roomId}/messages`),{
 text, type:"text", lang:user.primaryLang, langs:user.langs, tone, translations,
-senderName:user.name, senderFlag:myL.flag, senderId:userId.current,
+senderName:user.name, senderFlag:myL.flag, senderPhoto:photoUrl, senderId:userId.current,
 time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}),
 timestamp:Date.now(),
 });
