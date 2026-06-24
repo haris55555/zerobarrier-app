@@ -832,7 +832,7 @@ const [showNotifBanner, setShowNotifBanner] = useState(
 "Notification" in window && Notification.permission === "default"
 );
 const [onlineCount, setOnlineCount] = useState(1);
-const [photoUrl, setPhotoUrl] = useState<string|null>(null);
+const [photoUrl, setPhotoUrl] = useRef<string|null>(null);
 const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
 const bottomRef = useRef<HTMLDivElement>(null);
