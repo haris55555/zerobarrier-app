@@ -1,5 +1,7 @@
 export const config = { api: { bodyParser: { sizeLimit: "5mb" } } };
 
+import crypto from "crypto";
+
 export default async function handler(req, res) {
 if (req.method !== "POST") {
 return res.status(405).json({ error: "Method not allowed" });
@@ -13,11 +15,10 @@ const CLOUD_NAME = "drxghckvw";
 const API_KEY = "763262575355478";
 const API_SECRET = process.env.CLOUDINARY_API_SECRET;
 if (!API_SECRET) {
-return res.status(500).json({ error: "Server misconfigured" });
+return res.status(500).json({ error: "Server misconfigured - no secret" });
 }
 const timestamp = Math.round(Date.now() / 1000);
 const publicId = `zerobarrier/profiles/${userId}`;
-const crypto = (await import("crypto")).default;
 const sigString = `public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`;
 const signature = crypto.createHash("sha1").update(sigString).digest("hex");
 const body = new URLSearchParams();
