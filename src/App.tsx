@@ -1177,7 +1177,19 @@ onKeyDown={e=>e.key==="Enter"&&sendText()}/>
 {tab==="profile"&&(
 <div style={{flex:1,overflowY:"auto",padding:14,zIndex:1}}>
 <div style={{background:CARD,border:`1px solid ${BORDER}`,borderRadius:18,padding:"20px 16px"}}>
-<div style={{width:64,height:64,borderRadius:18,background:"rgba(0,255,178,0.1)",border:"2px solid rgba(0,255,178,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,margin:"0 auto 12px"}}>{myL.flag}</div>
+<div style={{position:"relative",width:80,height:80,margin:"0 auto 12px"}}>
+{photoUrl
+? <img src={photoUrl} alt="profile" style={{width:80,height:80,borderRadius:18,objectFit:"cover",border:"2px solid rgba(0,255,178,0.3)"}}/>
+: <div style={{width:80,height:80,borderRadius:18,background:"rgba(0,255,178,0.1)",border:"2px solid rgba(0,255,178,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>{myL.flag}</div>
+}
+<label style={{position:"absolute",bottom:-6,right:-6,background:GREEN,borderRadius:"50%",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:14}}>
+📷
+<input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files?.[0]) uploadPhoto(e.target.files[0]);}}/>
+</label>
+{uploadingPhoto && <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",borderRadius:18,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12}}>uploading...</div>}
+</div>
+
+
 <div style={{color:"#fff",fontWeight:800,fontSize:22,textAlign:"center",letterSpacing:-0.5}}>{user.name}</div>
 <div style={{color:SUB,fontSize:12,textAlign:"center",marginTop:4}}>ZeroBarrier Member</div>
 <div style={{height:1,background:BORDER,margin:"16px 0"}}/>
