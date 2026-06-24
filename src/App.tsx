@@ -860,6 +860,10 @@ setMessages(msgs);
 
 // Request notification permission
 requestNotificationPermission(userId.current, user.name);
+    // Load existing profile photo
+onValue(ref(db, `users/${userId.current}/photoUrl`), snap => {
+if (snap.val()) setPhotoUrl(snap.val());
+}, { onlyOnce: true });
 
 const onlineRef = ref(db, "presence");
 const onlineUnsub = onValue(onlineRef, snap => {
