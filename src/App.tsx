@@ -935,6 +935,7 @@ body: JSON.stringify({ image: base64, userId: userId.current }),
 const data = await res.json();
 if (data.url) {
 setPhotoUrl(data.url);
+photoUrlRef.current = data.url;
 await set(ref(db, `users/${userId.current}/photoUrl`), data.url);
 }
 };
