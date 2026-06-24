@@ -19,7 +19,7 @@ return res.status(500).json({ error: "No API secret found" });
 }
 const timestamp = Math.round(Date.now() / 1000);
 const publicId = `zerobarrier/profiles/${userId}`;
-const sigString = `public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`;
+const sigString = `overwrite=true&public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`;
 const signature = crypto.createHash("sha1").update(sigString).digest("hex");
 
 console.log("Attempting upload with publicId:", publicId);
