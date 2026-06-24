@@ -619,7 +619,7 @@ const wasTranslated = !alreadyUnderstands && translated;
 const srcLang = getLang(msg.lang);
 const avatarColors = ["#FF6B6B","#4ECDC4","#FFD93D","#A78BFA","#00FFB2","#FF9A3C"];
 const color = isMe ? GREEN : avatarColors[(msg.senderName||"?").charCodeAt(0)%avatarColors.length];
-const avatarPhoto = isMe ? null : msg.senderPhoto || null;
+const avatarPhoto = msg.senderPhoto || null;
 
 
 return (
