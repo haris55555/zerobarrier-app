@@ -619,6 +619,8 @@ const wasTranslated = !alreadyUnderstands && translated;
 const srcLang = getLang(msg.lang);
 const avatarColors = ["#FF6B6B","#4ECDC4","#FFD93D","#A78BFA","#00FFB2","#FF9A3C"];
 const color = isMe ? GREEN : avatarColors[(msg.senderName||"?").charCodeAt(0)%avatarColors.length];
+const avatarPhoto = isMe ? null : msg.senderPhoto || null;
+
 
 return (
 <div style={{display:"flex",flexDirection:isMe?"row-reverse":"row",gap:10,alignItems:"flex-end",marginBottom:18}}>
