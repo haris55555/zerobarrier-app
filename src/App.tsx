@@ -912,6 +912,30 @@ remove(myPresenceRef);
 }, []);
 
 useEffect(() => { bottomRef.current?.scrollIntoView({behavior:"smooth"}); }, [messages, showVoice]);
+async function uploadPhoto(file: File) {
+setUploadingPhoto(true);
+try {
+const reader = new FileReader();
+reader.onload = async (e) => {
+const base64 = e.target?.result as string;
+const res = await fetch("/api/upload-photo", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({ image: base64, userId: userId.current }),
+});
+const data = await res.json();
+if (data.url) {
+setPhotoUrl(data.url);
+await set(ref(db, `users/${userId.current}/photoUrl`), data.url);
+}
+};
+reader.readAsDataURL(file);
+} catch (e) {
+console.error("Photo upload failed", e);
+}
+setUploadingPhoto(false);
+}
+
 
 async function sendText() {
 const text = input.trim();
