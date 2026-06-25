@@ -628,7 +628,8 @@ return (
 <div style={{display:"flex",flexDirection:isMe?"row-reverse":"row",gap:10,alignItems:"flex-end",marginBottom:18}}>
 <div style={{width:34,height:34,borderRadius:10,background:color+"22",border:`2px solid ${color}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,overflow:"hidden"}}>
 {avatarPhoto
-? <img src={avatarPhoto} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+? <img src={avatarPhoto} alt="" onClick={()=>setShowPhotoFull(true)} style={{width:"100%",height:"100%",objectFit:"cover",cursor:"pointer"}}/>
+
 : (msg.senderFlag||msg.senderName?.[0]||"?")
 }
 </div>
