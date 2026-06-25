@@ -645,6 +645,11 @@ return (
 <button onClick={()=>setConfirmDelete(true)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,100,100,0.6)",fontSize:12,padding:"0 2px",marginLeft:"auto"}}>🗑️</button>
 )}
 </div>
+    {showPhotoFull && avatarPhoto && (
+<div onClick={()=>setShowPhotoFull(false)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999,cursor:"pointer"}}>
+<img src={avatarPhoto} alt="profile" style={{maxWidth:"90%",maxHeight:"90%",borderRadius:16,objectFit:"contain"}}/>
+</div>
+)}
 {confirmDelete && (
 <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}}>
 <div style={{background:"#1a1a2e",border:"1px solid rgba(255,255,255,0.15)",borderRadius:16,padding:"24px 20px",width:280,textAlign:"center"}}>
