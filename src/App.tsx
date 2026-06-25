@@ -604,6 +604,8 @@ const [showOrig, setShowOrig] = useState(false);
 const [translated, setTranslated] = useState<string|null>(null);
 const [translating, setTranslating] = useState(false);
 const [confirmDelete, setConfirmDelete] = useState(false);
+const [showPhotoFull, setShowPhotoFull] = useState(false);
+
 useEffect(() => {
 if (myLangs.includes(msg.lang)) return;
 if (msg.translations?.[myPrimary]) { setTranslated(msg.translations[myPrimary]); return; }
